@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { Menu, LogOut } from 'lucide-react';
+import { Outlet, useNavigate, Link } from 'react-router-dom';
+import { Menu, LogOut, Crown, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../context/AuthContext';
+import * as api from '../api/client';
 import Sidebar from './Sidebar';
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [plan, setPlan] = useState<'free' | 'pro' | null>(null);
   const { user, isAuthenticated, logout, loadUser } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     loadUser();
   }, [loadUser]);
+
+  useEffect(() => {
+    api.getBillingStatus().then((s) => setPlan(s.plan)).catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -48,6 +54,19 @@ export default function Layout() {
           <div className="lg:flex-1" />
 
           <div className="flex items-center gap-3">
+            {plan === 'pro' ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
+                <Crown size={12} /> Pro
+              </span>
+            ) : plan === 'free' ? (
+              <Link
+                to="/billing"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-full transition-colors"
+              >
+                <Sparkles size={12} /> Upgrade
+              </Link>
+            ) : null}
+
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-slate-900">
                 {user?.name || 'Loading...'}

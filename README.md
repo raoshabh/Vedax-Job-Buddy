@@ -151,6 +151,7 @@ Per-job prep kit: an overview, topics to brush up, **likely questions** (behavio
 - [x] Billing (Razorpay) + freemium tiers — Free/Pro entitlements enforced
 - [x] Analytics & insights dashboard
 - [x] AI interview prep (Pro)
+- [x] Smart onboarding checklist + plan badge
 - [ ] Live ATS submission via employer-authorized integration
 - [ ] Next.js rebuild (SSR for job-page SEO) + Postgres + Typesense
 

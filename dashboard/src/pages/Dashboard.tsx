@@ -9,6 +9,7 @@ import {
 import toast from 'react-hot-toast';
 import StatsCard from '../components/StatsCard';
 import ApplicationPipeline from '../components/ApplicationPipeline';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 import * as api from '../api/client';
 import type { Application, DashboardStats } from '../api/client';
 
@@ -96,6 +97,9 @@ export default function Dashboard() {
           Your job search overview
         </p>
       </div>
+
+      {/* Onboarding (auto-hides once complete) */}
+      {!loading && <OnboardingChecklist applicationCount={applications.length} />}
 
       {/* Stats Grid */}
       {loading ? (
