@@ -78,6 +78,24 @@ npm run build
 node dist/mcp/server.js     # stdio transport
 ```
 
+## 🐳 Deploy
+
+The whole app ships as **one Docker image** (React dashboard + API on one port).
+
+```bash
+# Local production run
+JWT_SECRET=$(openssl rand -hex 32) docker compose up --build
+# → http://localhost:3001
+```
+
+**Render** (one-click): push to GitHub → Render → New → Blueprint → pick this repo. `render.yaml` provisions a web service + a 1 GB persistent disk at `/app/data` (SQLite DB + resumes) and auto-generates `JWT_SECRET`. Add your integration keys (Anthropic, Adzuna, Razorpay, WhatsApp) as secret env vars.
+
+**Railway / Fly.io**: both auto-detect the `Dockerfile`. Set `JWT_SECRET`, `NODE_ENV=production`, `TRUST_PROXY=true`, mount a volume at `/app/data`, and add integration keys.
+
+> Production hardening included: helmet security headers, rate limiting (general + stricter on auth), 1 MB body limit, request logging, a central error handler, `/api/ready` probe, and **fail-fast boot** if `JWT_SECRET` is missing/default in production.
+
+> ⚠️ `sql.js` persists to `/app/data` and is **single-instance**. For multiple instances / serverless, migrate to Postgres (see `LAUNCH.md` → A6). See **[LAUNCH.md](LAUNCH.md)** for the full launch plan.
+
 ## 🔌 Configuration
 
 All optional — see [`server/.env.example`](server/.env.example).

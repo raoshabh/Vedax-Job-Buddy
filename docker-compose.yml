@@ -1,0 +1,26 @@
+# Local production run:  JWT_SECRET=$(openssl rand -hex 32) docker compose up --build
+services:
+  app:
+    build: .
+    image: vedax-job-buddy
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: production
+      TRUST_PROXY: 'true'
+      JWT_SECRET: ${JWT_SECRET:?Set a strong JWT_SECRET (e.g. openssl rand -hex 32)}
+      # Optional integrations — leave blank to run in mock/fallback mode:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+    volumes:
+      - vedax-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  vedax-data:

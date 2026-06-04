@@ -19,7 +19,20 @@ function envNum(name: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+const DEFAULT_JWT_SECRET = 'jobtracker-dev-secret-change-in-production';
+
 export const config = {
+  // Environment / server
+  nodeEnv: process.env.NODE_ENV || 'development',
+  corsOrigins: envList('CORS_ORIGINS', [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+  ]),
+  trustProxy: process.env.TRUST_PROXY === 'true',
+  rateLimitPerMin: envNum('RATE_LIMIT_PER_MIN', 120),
+  authRateLimitPerMin: envNum('AUTH_RATE_LIMIT_PER_MIN', 20),
+
   // How long ingested jobs stay "fresh" before a background refresh is triggered.
   ingestTtlMinutes: envNum('INGEST_TTL_MINUTES', 360), // 6 hours
   // If the jobs table has fewer than this, force an ingest on next search.
@@ -117,4 +130,35 @@ export const INDIA_KEYWORDS = [
 export function isIndiaRelevant(location: string): boolean {
   const lower = (location || '').toLowerCase();
   return INDIA_KEYWORDS.some((k) => lower.includes(k));
+}
+
+export function isProd(): boolean {
+  return config.nodeEnv === 'production';
+}
+
+/**
+ * Validate configuration at boot. Throws on fatal misconfiguration in
+ * production; warns about missing optional integrations (which degrade to
+ * mock/fallback mode).
+ */
+export function validateConfig(): void {
+  const fatal: string[] = [];
+
+  if (isProd()) {
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === DEFAULT_JWT_SECRET) {
+      fatal.push('JWT_SECRET must be set to a strong, unique secret in production.');
+    }
+  }
+
+  if (fatal.length > 0) {
+    throw new Error('Fatal config error(s):\n - ' + fatal.join('\n - '));
+  }
+
+  const warn = (name: string, what: string) => {
+    if (!process.env[name]) console.warn(`[config] ${name} not set — ${what} runs in mock/fallback mode.`);
+  };
+  warn('ANTHROPIC_API_KEY', 'AI tailoring & interview prep');
+  warn('ADZUNA_APP_ID', 'Adzuna India job source');
+  warn('WHATSAPP_TOKEN', 'WhatsApp delivery');
+  warn('RAZORPAY_KEY_ID', 'live billing');
 }

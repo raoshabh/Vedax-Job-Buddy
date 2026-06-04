@@ -1,0 +1,36 @@
+# Render Blueprint — deploy with one click via render.com/deploy
+# (or: Render dashboard → New → Blueprint → point at this repo)
+services:
+  - type: web
+    name: vedax-job-buddy
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: 'true'
+      - key: JWT_SECRET
+        generateValue: true # Render generates a strong secret
+      - key: ANTHROPIC_API_KEY
+        sync: false # set in dashboard (secret)
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
+      - key: ADZUNA_APP_ID
+        sync: false
+      - key: ADZUNA_APP_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+    disk:
+      name: data
+      mountPath: /app/data # SQLite DB + uploaded resumes persist here
+      sizeGB: 1

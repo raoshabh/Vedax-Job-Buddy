@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/data
+**/*.log
+.git
+.github
+.claude
+*.md
+!README.md
+.env
+**/.env
