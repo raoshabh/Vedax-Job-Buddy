@@ -11,6 +11,7 @@
     "mcp": "node dist/mcp/server.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "@modelcontextprotocol/sdk": "^1.6.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

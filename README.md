@@ -104,10 +104,22 @@ Opt-in daily WhatsApp summary of your job search (applications, interviews, prog
 - **UI:** `/notifications` — set number, opt-in, time; "Send Test Digest" with a live message preview.
 - **MCP tools:** `jobtracker_setup_whatsapp`, `jobtracker_send_whatsapp_digest`.
 
+## ✨ AI Application Tailoring
+
+Per-job, "Copilot not spam" tailoring — the heart of the product strategy.
+
+- **Model:** Claude **Sonnet 4.6** by default (best speed/cost for high-volume content gen; set `ANTHROPIC_MODEL=claude-opus-4-8` for max quality).
+- **Output:** structured (cover letter + resume tips + ATS keywords + strengths/gaps + match score), validated with Zod.
+- **Prompt caching:** the candidate profile sits in a `cache_control` system block, so tailoring the same profile against many jobs reuses the cached prefix (big cost saving).
+- **Graceful fallback:** a deterministic template generator runs when `ANTHROPIC_API_KEY` is absent, so the feature works with zero setup and upgrades to real AI when a key is added.
+- **Caching:** results are persisted per (user, job); reopening a job is instant, `?refresh` regenerates.
+- **UI:** "✨ Tailor" on each job card opens a modal with the cover letter (one-click copy), tips, keywords, and analysis.
+- **MCP tool:** `jobtracker_tailor_application`.
+
 ## 🗺️ Roadmap
 
 - [x] WhatsApp daily digest ("jobs applied today") — Meta Cloud API + mock mode
-- [ ] AI resume + cover-letter tailoring per job
+- [x] AI resume + cover-letter tailoring per job — Claude Sonnet 4.6 + template fallback
 - [ ] Safe auto-apply workers for Greenhouse/Lever
 - [ ] Billing (Razorpay) + freemium tiers
 - [ ] Next.js rebuild (SSR for job-page SEO) + Postgres + Typesense

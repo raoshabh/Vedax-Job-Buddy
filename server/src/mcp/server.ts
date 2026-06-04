@@ -15,9 +15,12 @@ import {
   getDashboardStats,
   getAppliedJobIds,
   upsertWhatsappPrefs,
+  getJob,
+  saveTailoring,
 } from '../db.js';
 import { ensureFreshJobs } from '../jobs/ingest.js';
 import { sendDigestNow } from '../notifications/scheduler.js';
+import { tailorApplication } from '../ai/tailor.js';
 
 const server = new McpServer({
   name: 'jobtracker',
@@ -341,6 +344,42 @@ server.tool(
           applications: results,
           skipped: jobs.length - toApply.length,
           reason_skipped: 'Already applied or limit reached',
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// ── jobtracker_tailor_application ──
+server.tool(
+  'jobtracker_tailor_application',
+  'Generate an AI-tailored application for a specific job: a personalized cover letter, resume tips, ATS keywords, and a match analysis based on the user profile.',
+  {
+    job_id: z.string().describe('The ID of the job to tailor an application for'),
+  },
+  { destructiveHint: false, readOnlyHint: false },
+  async (params) => {
+    const userId = getDefaultUserId();
+    const job = getJob(params.job_id);
+    if (!job) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Job not found' }) }],
+        isError: true,
+      };
+    }
+
+    const profile = getProfile(userId);
+    const { data, source } = await tailorApplication(profile, job);
+    saveTailoring(userId, params.job_id, data, source);
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: true,
+          source, // 'ai' or 'template'
+          job: { title: job.title, company: job.company },
+          tailoring: data,
         }, null, 2),
       }],
     };

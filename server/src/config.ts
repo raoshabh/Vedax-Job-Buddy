@@ -54,6 +54,13 @@ export const config = {
   // Network
   fetchTimeoutMs: envNum('FETCH_TIMEOUT_MS', 15000),
 
+  // ── AI tailoring (Anthropic Claude; template fallback when no key) ──
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+  // Sonnet 4.6: best speed/intelligence balance for high-volume content gen.
+  // Override with ANTHROPIC_MODEL=claude-opus-4-8 for maximum quality.
+  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
+  anthropicEffort: (process.env.ANTHROPIC_EFFORT || 'medium') as 'low' | 'medium' | 'high',
+
   // ── WhatsApp daily digest (Meta Cloud API; console/mock fallback) ──
   whatsappToken: process.env.WHATSAPP_TOKEN || '',
   whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',

@@ -1,7 +1,16 @@
 import { Router, type Request, type Response } from 'express';
 import { authMiddleware } from '../auth.js';
-import { getProfile, searchStoredJobs, getJob, getJobsStats } from '../db.js';
+import {
+  getProfile,
+  searchStoredJobs,
+  getJob,
+  getJobsStats,
+  getTailoring,
+  saveTailoring,
+} from '../db.js';
 import { ensureFreshJobs, ingestJobs } from '../jobs/ingest.js';
+import { tailorApplication } from '../ai/tailor.js';
+import { aiEnabled } from '../ai/client.js';
 
 const router = Router();
 
@@ -39,6 +48,52 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     console.error('Refresh jobs error:', err);
     res.status(500).json({ error: 'Failed to refresh jobs' });
+  }
+});
+
+// GET /:id/tailor - fetch a cached AI tailoring (if any)
+router.get('/:id/tailor', (req: Request, res: Response): void => {
+  try {
+    const cached = getTailoring(req.userId!, req.params.id as string);
+    if (!cached) {
+      res.json({ tailoring: null });
+      return;
+    }
+    res.json({ tailoring: cached.data, source: cached.source, created_at: cached.created_at, cached: true });
+  } catch (err) {
+    console.error('Get tailoring error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /:id/tailor - generate (or return cached) AI-tailored application
+router.post('/:id/tailor', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const jobId = req.params.id as string;
+    const refresh = req.body?.refresh === true;
+
+    const job = getJob(jobId);
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+
+    if (!refresh) {
+      const cached = getTailoring(req.userId!, jobId);
+      if (cached) {
+        res.json({ tailoring: cached.data, source: cached.source, cached: true });
+        return;
+      }
+    }
+
+    const profile = getProfile(req.userId!);
+    const { data, source } = await tailorApplication(profile, job);
+    saveTailoring(req.userId!, jobId, data, source);
+
+    res.json({ tailoring: data, source, cached: false, ai_enabled: aiEnabled() });
+  } catch (err) {
+    console.error('Tailor error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

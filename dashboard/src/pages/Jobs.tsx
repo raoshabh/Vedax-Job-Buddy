@@ -3,6 +3,7 @@ import { Search, Loader2, MapPin, Briefcase } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import JobCard from '../components/JobCard';
+import TailorModal from '../components/TailorModal';
 import * as api from '../api/client';
 import type { Job } from '../api/client';
 
@@ -28,6 +29,7 @@ export default function Jobs() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [tailorJob, setTailorJob] = useState<Job | null>(null);
 
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
@@ -167,6 +169,7 @@ export default function Jobs() {
               key={job._id}
               job={job}
               onApply={handleApply}
+              onTailor={setTailorJob}
               applying={applyingId === job._id}
             />
           ))}
@@ -188,6 +191,10 @@ export default function Jobs() {
           </Link>
         </div>
       ) : null}
+
+      {tailorJob && (
+        <TailorModal job={tailorJob} onClose={() => setTailorJob(null)} />
+      )}
     </div>
   );
 }

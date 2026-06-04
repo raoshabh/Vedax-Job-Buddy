@@ -1,10 +1,11 @@
-import { MapPin, DollarSign, Loader2 } from 'lucide-react';
+import { MapPin, DollarSign, Loader2, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import type { Job } from '../api/client';
 
 interface JobCardProps {
   job: Job;
   onApply: (jobId: string) => void;
+  onTailor: (job: Job) => void;
   applying?: boolean;
 }
 
@@ -33,7 +34,7 @@ function formatSalary(val?: number): string {
   return `$${val}`;
 }
 
-export default function JobCard({ job, onApply, applying }: JobCardProps) {
+export default function JobCard({ job, onApply, onTailor, applying }: JobCardProps) {
   const matchScore = job.matchScore ?? 0;
   const scoreColor =
     matchScore >= 80
@@ -91,26 +92,35 @@ export default function JobCard({ job, onApply, applying }: JobCardProps) {
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 mt-auto">
+      <div className="mt-auto space-y-2">
         {job.source && (
-          <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wide">
+          <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wide inline-block">
             {job.source}
           </span>
         )}
-        <button
-          onClick={() => onApply(job._id)}
-          disabled={applying}
-          className="btn-primary text-xs py-2 px-4 flex-1 flex items-center justify-center gap-1.5"
-        >
-          {applying ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Applying...
-            </>
-          ) : (
-            'Apply'
-          )}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onTailor(job)}
+            className="btn-secondary text-xs py-2 px-3 flex-1 flex items-center justify-center gap-1.5"
+          >
+            <Sparkles size={14} className="text-indigo-500" />
+            Tailor
+          </button>
+          <button
+            onClick={() => onApply(job._id)}
+            disabled={applying}
+            className="btn-primary text-xs py-2 px-3 flex-1 flex items-center justify-center gap-1.5"
+          >
+            {applying ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Applying...
+              </>
+            ) : (
+              'Apply'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

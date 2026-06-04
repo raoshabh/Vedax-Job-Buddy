@@ -257,6 +257,52 @@ export async function searchJobs(params?: SearchJobsParams): Promise<Job[]> {
   return data.jobs.map(mapJob);
 }
 
+// ---- AI Tailoring ----
+
+export interface Tailoring {
+  matchSummary: string;
+  matchScore: number;
+  strengths: string[];
+  gaps: string[];
+  atsKeywords: string[];
+  resumeTips: string[];
+  coverLetter: string;
+}
+
+export interface TailorResult {
+  tailoring: Tailoring;
+  source: 'ai' | 'template';
+  cached: boolean;
+}
+
+function mapTailoring(raw: Record<string, unknown>): Tailoring {
+  return {
+    matchSummary: (raw.match_summary as string) ?? '',
+    matchScore: (raw.match_score as number) ?? 0,
+    strengths: (raw.strengths as string[]) ?? [],
+    gaps: (raw.gaps as string[]) ?? [],
+    atsKeywords: (raw.ats_keywords as string[]) ?? [],
+    resumeTips: (raw.resume_tips as string[]) ?? [],
+    coverLetter: (raw.cover_letter as string) ?? '',
+  };
+}
+
+export async function tailorApplication(jobId: string, refresh = false): Promise<TailorResult> {
+  const data = await request<{ tailoring: Record<string, unknown>; source: 'ai' | 'template'; cached: boolean }>(
+    `/jobs/${jobId}/tailor`,
+    { method: 'POST', body: JSON.stringify({ refresh }) }
+  );
+  return { tailoring: mapTailoring(data.tailoring), source: data.source, cached: data.cached };
+}
+
+export async function getTailoring(jobId: string): Promise<TailorResult | null> {
+  const data = await request<{ tailoring: Record<string, unknown> | null; source?: 'ai' | 'template'; cached?: boolean }>(
+    `/jobs/${jobId}/tailor`
+  );
+  if (!data.tailoring) return null;
+  return { tailoring: mapTailoring(data.tailoring), source: data.source ?? 'template', cached: true };
+}
+
 // ---- Applications ----
 
 export async function getApplications(status?: ApplicationStatus): Promise<Application[]> {
