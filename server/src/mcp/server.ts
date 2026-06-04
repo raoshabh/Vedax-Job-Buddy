@@ -21,6 +21,7 @@ import {
 import { ensureFreshJobs } from '../jobs/ingest.js';
 import { sendDigestNow } from '../notifications/scheduler.js';
 import { tailorApplication } from '../ai/tailor.js';
+import { runAutoApply } from '../autoapply/worker.js';
 
 const server = new McpServer({
   name: 'jobtracker',
@@ -293,57 +294,36 @@ server.tool(
 // ── jobtracker_auto_apply ──
 server.tool(
   'jobtracker_auto_apply',
-  'Automatically search for top matching jobs and apply to them. Skips jobs already applied to.',
+  'Run the auto-apply pipeline: find the top matching DIRECT-ATS jobs (Greenhouse/Lever/Ashby), auto-tailor each, and queue them ready to submit. Skips already-applied jobs and respects the daily cap and match-score floor. Submission is dry-run (prepared) until a live ATS integration is configured.',
   {
-    max_applications: z.number().default(5).describe('Maximum number of applications to create (default 5)'),
+    max_applications: z.number().default(5).describe('Maximum number of applications to prepare this run (capped by daily limit)'),
   },
   { destructiveHint: false },
   async (params) => {
     const userId = getDefaultUserId();
-    const profile = getProfile(userId);
-
-    if (!profile) {
-      return {
-        content: [{
-          type: 'text' as const,
-          text: JSON.stringify({ error: 'No profile found. Please set up your profile first using jobtracker_setup_profile.' }),
-        }],
-        isError: true,
-      };
-    }
-
     await ensureFreshJobs();
-    const appliedJobIds = new Set(getAppliedJobIds(userId));
-    const jobs = searchStoredJobs(profile, { limit: params.max_applications + 10 });
-
-    const unappliedJobs = jobs.filter(j => !appliedJobIds.has(j.id));
-    const toApply = unappliedJobs.slice(0, params.max_applications);
-
-    const results: Array<{ job: string; company: string; match_score: number; application_id: string }> = [];
-
-    for (const job of toApply) {
-      try {
-        const app = createApplication(userId, job.id, 'Auto-applied via AI agent');
-        results.push({
-          job: job.title,
-          company: job.company,
-          match_score: job.match_score,
-          application_id: app.id,
-        });
-      } catch {
-        // Skip failures silently
-      }
-    }
+    const result = await runAutoApply(userId, { max: params.max_applications });
 
     return {
       content: [{
         type: 'text' as const,
         text: JSON.stringify({
           success: true,
-          message: `Successfully applied to ${results.length} jobs`,
-          applications: results,
-          skipped: jobs.length - toApply.length,
-          reason_skipped: 'Already applied or limit reached',
+          mode: result.mode,
+          live_submission: result.live,
+          prepared: result.prepared,
+          skipped: result.skipped,
+          remaining_today: result.remaining_today,
+          message: result.message,
+          items: result.items.map(i => ({
+            job: i.title,
+            company: i.company,
+            source: i.source,
+            match_score: i.match_score,
+            status: i.status,
+            submitted: i.submitted,
+            apply_url: i.url,
+          })),
         }, null, 2),
       }],
     };

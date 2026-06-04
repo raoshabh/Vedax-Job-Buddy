@@ -4,6 +4,7 @@ import {
   User,
   Search,
   Briefcase,
+  Zap,
   MessageCircle,
   Sparkles,
   Rocket,
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/profile', label: 'My Profile', icon: User },
   { to: '/jobs', label: 'Job Search', icon: Search },
+  { to: '/auto-apply', label: 'Auto-Apply', icon: Zap },
   { to: '/applications', label: 'Applications', icon: Briefcase },
   { to: '/notifications', label: 'WhatsApp Alerts', icon: MessageCircle },
 ];

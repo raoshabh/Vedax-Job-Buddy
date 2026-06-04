@@ -61,6 +61,13 @@ export const config = {
   anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
   anthropicEffort: (process.env.ANTHROPIC_EFFORT || 'medium') as 'low' | 'medium' | 'high',
 
+  // ── Auto-apply pipeline (direct-ATS lane only — never aggregators) ──
+  autoApplyDailyCap: envNum('AUTO_APPLY_DAILY_CAP', 10),
+  autoApplyHardCapPerRun: envNum('AUTO_APPLY_HARD_CAP_PER_RUN', 10),
+  autoApplyMinScore: envNum('AUTO_APPLY_MIN_SCORE', 65),
+  // Source prefixes eligible for auto-apply. Direct-ATS only (legally safe lane).
+  autoApplySources: envList('AUTO_APPLY_SOURCES', ['greenhouse', 'lever', 'ashby']),
+
   // ── WhatsApp daily digest (Meta Cloud API; console/mock fallback) ──
   whatsappToken: process.env.WHATSAPP_TOKEN || '',
   whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',

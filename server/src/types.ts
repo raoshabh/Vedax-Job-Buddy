@@ -81,6 +81,27 @@ export interface DailyDigest {
   by_status: Record<string, number>;
 }
 
+export interface AutoApplyConfig {
+  user_id: string;
+  enabled: number; // 0 | 1
+  mode: 'prepare' | 'auto';
+  daily_cap: number;
+  min_score: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AutoApplyRun {
+  id: string;
+  user_id: string;
+  mode: string;
+  requested: number;
+  prepared: number;
+  skipped: number;
+  summary: string; // JSON array of items
+  started_at: string;
+}
+
 // Express request augmentation
 declare global {
   namespace Express {

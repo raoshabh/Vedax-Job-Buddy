@@ -303,6 +303,123 @@ export async function getTailoring(jobId: string): Promise<TailorResult | null> 
   return { tailoring: mapTailoring(data.tailoring), source: data.source ?? 'template', cached: true };
 }
 
+// ---- Auto-apply pipeline ----
+
+export interface AutoApplyConfig {
+  enabled: boolean;
+  mode: 'prepare' | 'auto';
+  dailyCap: number;
+  minScore: number;
+  liveSubmission: boolean;
+  eligibleSources: string[];
+}
+
+export interface AutoApplyItem {
+  title: string;
+  company: string;
+  source: string;
+  matchScore: number;
+  status: 'queued' | 'applied';
+  submitted: boolean;
+  url: string;
+}
+
+export interface AutoApplyResult {
+  mode: 'prepare' | 'auto';
+  live: boolean;
+  requested: number;
+  prepared: number;
+  skipped: number;
+  remainingToday: number;
+  items: AutoApplyItem[];
+  message?: string;
+}
+
+export interface AutoApplyRun {
+  id: string;
+  mode: string;
+  prepared: number;
+  skipped: number;
+  startedAt: string;
+  items: AutoApplyItem[];
+}
+
+function mapAutoConfig(raw: Record<string, unknown>): AutoApplyConfig {
+  return {
+    enabled: Boolean(raw.enabled),
+    mode: (raw.mode as 'prepare' | 'auto') ?? 'prepare',
+    dailyCap: (raw.daily_cap as number) ?? 10,
+    minScore: (raw.min_score as number) ?? 65,
+    liveSubmission: Boolean(raw.live_submission),
+    eligibleSources: (raw.eligible_sources as string[]) ?? [],
+  };
+}
+
+function mapItem(raw: Record<string, unknown>): AutoApplyItem {
+  return {
+    title: (raw.title as string) ?? '',
+    company: (raw.company as string) ?? '',
+    source: (raw.source as string) ?? '',
+    matchScore: (raw.match_score as number) ?? 0,
+    status: (raw.status as 'queued' | 'applied') ?? 'queued',
+    submitted: Boolean(raw.submitted),
+    url: (raw.url as string) ?? '',
+  };
+}
+
+export async function getAutoApplyConfig(): Promise<AutoApplyConfig> {
+  const data = await request<{ config: Record<string, unknown> }>('/autoapply/config');
+  return mapAutoConfig(data.config);
+}
+
+export async function updateAutoApplyConfig(input: {
+  enabled?: boolean;
+  mode?: 'prepare' | 'auto';
+  dailyCap?: number;
+  minScore?: number;
+}): Promise<AutoApplyConfig> {
+  const body: Record<string, unknown> = {};
+  if (input.enabled !== undefined) body.enabled = input.enabled;
+  if (input.mode !== undefined) body.mode = input.mode;
+  if (input.dailyCap !== undefined) body.daily_cap = input.dailyCap;
+  if (input.minScore !== undefined) body.min_score = input.minScore;
+  const data = await request<{ config: Record<string, unknown> }>('/autoapply/config', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+  return mapAutoConfig(data.config);
+}
+
+export async function runAutoApply(max?: number): Promise<AutoApplyResult> {
+  const data = await request<{ result: Record<string, unknown> }>('/autoapply/run', {
+    method: 'POST',
+    body: JSON.stringify(max !== undefined ? { max } : {}),
+  });
+  const r = data.result;
+  return {
+    mode: (r.mode as 'prepare' | 'auto') ?? 'prepare',
+    live: Boolean(r.live),
+    requested: (r.requested as number) ?? 0,
+    prepared: (r.prepared as number) ?? 0,
+    skipped: (r.skipped as number) ?? 0,
+    remainingToday: (r.remaining_today as number) ?? 0,
+    items: ((r.items as Record<string, unknown>[]) ?? []).map(mapItem),
+    message: r.message as string | undefined,
+  };
+}
+
+export async function getAutoApplyRuns(): Promise<AutoApplyRun[]> {
+  const data = await request<{ runs: Record<string, unknown>[] }>('/autoapply/runs');
+  return (data.runs ?? []).map((r) => ({
+    id: r.id as string,
+    mode: r.mode as string,
+    prepared: (r.prepared as number) ?? 0,
+    skipped: (r.skipped as number) ?? 0,
+    startedAt: r.started_at as string,
+    items: ((r.items as Record<string, unknown>[]) ?? []).map(mapItem),
+  }));
+}
+
 // ---- Applications ----
 
 export async function getApplications(status?: ApplicationStatus): Promise<Application[]> {

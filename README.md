@@ -116,11 +116,23 @@ Per-job, "Copilot not spam" tailoring — the heart of the product strategy.
 - **UI:** "✨ Tailor" on each job card opens a modal with the cover letter (one-click copy), tips, keywords, and analysis.
 - **MCP tool:** `jobtracker_tailor_application`.
 
+## 🤖 Auto-Apply Pipeline (safe / direct-ATS lane)
+
+"Quality, not spam." Auto-discovers your best **direct-ATS** matches, auto-tailors each, and queues them ready to submit — with hard guardrails.
+
+- **Source allowlist:** only Greenhouse / Lever / Ashby (direct-ATS) — **never** aggregators or sites that prohibit automation.
+- **Guardrails:** dedupe vs existing applications, configurable **daily cap**, **per-run hard cap**, and a **minimum match-score** floor.
+- **Honest submission:** runs in **dry-run** by default (prepares + queues with the real apply URL); never marks an application "applied" unless a real submission occurred. Live submission has a clear extension point (`autoapply/submit.ts`) for when an employer-authorized ATS path is configured.
+- **Audit:** every run is recorded (`auto_apply_runs`); applications carry an `[auto-apply]` note.
+- **UI:** `/auto-apply` — enable toggle, Prepare/Auto mode, daily cap, match-score slider, "Run now", and run history.
+- **MCP tool:** `jobtracker_auto_apply`.
+
 ## 🗺️ Roadmap
 
 - [x] WhatsApp daily digest ("jobs applied today") — Meta Cloud API + mock mode
 - [x] AI resume + cover-letter tailoring per job — Claude Sonnet 4.6 + template fallback
-- [ ] Safe auto-apply workers for Greenhouse/Lever
+- [x] Safe auto-apply pipeline (direct-ATS) — guardrails + dry-run submission
+- [ ] Live ATS submission via employer-authorized integration
 - [ ] Billing (Razorpay) + freemium tiers
 - [ ] Next.js rebuild (SSR for job-page SEO) + Postgres + Typesense
 

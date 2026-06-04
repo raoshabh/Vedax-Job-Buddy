@@ -13,6 +13,8 @@ import type {
   Activity,
   WhatsappPrefs,
   DailyDigest,
+  AutoApplyConfig,
+  AutoApplyRun,
 } from './types.js';
 import type { NormalizedJob } from './jobs/types.js';
 import { scoreJob } from './jobs/match.js';
@@ -140,6 +142,31 @@ function initTables(db: SqlJsDatabase): void {
       PRIMARY KEY (user_id, job_id),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS auto_apply_config (
+      user_id TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      mode TEXT NOT NULL DEFAULT 'prepare',
+      daily_cap INTEGER NOT NULL DEFAULT 10,
+      min_score INTEGER NOT NULL DEFAULT 65,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS auto_apply_runs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      requested INTEGER NOT NULL DEFAULT 0,
+      prepared INTEGER NOT NULL DEFAULT 0,
+      skipped INTEGER NOT NULL DEFAULT 0,
+      summary TEXT,
+      started_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
@@ -634,6 +661,80 @@ export function saveTailoring(userId: string, jobId: string, data: unknown, sour
     `INSERT OR REPLACE INTO tailorings (user_id, job_id, data, source, created_at) VALUES (?, ?, ?, ?, ?)`,
     [userId, jobId, JSON.stringify(data), source, now]
   );
+}
+
+// ── Auto-apply config & runs ──
+
+export function getAutoApplyConfig(userId: string): AutoApplyConfig | undefined {
+  return queryOne<AutoApplyConfig>('SELECT * FROM auto_apply_config WHERE user_id = ?', [userId]);
+}
+
+export function upsertAutoApplyConfig(
+  userId: string,
+  data: { enabled?: boolean; mode?: 'prepare' | 'auto'; daily_cap?: number; min_score?: number }
+): AutoApplyConfig {
+  const now = new Date().toISOString();
+  const existing = getAutoApplyConfig(userId);
+  if (existing) {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    if (data.enabled !== undefined) { fields.push('enabled = ?'); values.push(data.enabled ? 1 : 0); }
+    if (data.mode !== undefined) { fields.push('mode = ?'); values.push(data.mode); }
+    if (data.daily_cap !== undefined) { fields.push('daily_cap = ?'); values.push(data.daily_cap); }
+    if (data.min_score !== undefined) { fields.push('min_score = ?'); values.push(data.min_score); }
+    fields.push('updated_at = ?'); values.push(now);
+    values.push(userId);
+    execute(`UPDATE auto_apply_config SET ${fields.join(', ')} WHERE user_id = ?`, values);
+  } else {
+    execute(
+      `INSERT INTO auto_apply_config (user_id, enabled, mode, daily_cap, min_score, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userId,
+        data.enabled ? 1 : 0,
+        data.mode ?? 'prepare',
+        data.daily_cap ?? 10,
+        data.min_score ?? 65,
+        now,
+        now,
+      ]
+    );
+  }
+  return getAutoApplyConfig(userId)!;
+}
+
+export function recordAutoApplyRun(run: {
+  user_id: string;
+  mode: string;
+  requested: number;
+  prepared: number;
+  skipped: number;
+  summary: unknown;
+}): AutoApplyRun {
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  execute(
+    `INSERT INTO auto_apply_runs (id, user_id, mode, requested, prepared, skipped, summary, started_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, run.user_id, run.mode, run.requested, run.prepared, run.skipped, JSON.stringify(run.summary), now]
+  );
+  return queryOne<AutoApplyRun>('SELECT * FROM auto_apply_runs WHERE id = ?', [id])!;
+}
+
+export function getAutoApplyRuns(userId: string, limit = 10): AutoApplyRun[] {
+  return queryAll<AutoApplyRun>(
+    'SELECT * FROM auto_apply_runs WHERE user_id = ? ORDER BY started_at DESC LIMIT ?',
+    [userId, limit]
+  );
+}
+
+/** How many applications the pipeline prepared today (for daily-cap enforcement). */
+export function countAutoPreparedToday(userId: string, dateStr: string): number {
+  const row = queryOne<{ total: number }>(
+    "SELECT COALESCE(SUM(prepared), 0) as total FROM auto_apply_runs WHERE user_id = ? AND substr(started_at, 1, 10) = ?",
+    [userId, dateStr]
+  );
+  return row?.total || 0;
 }
 
 export function getOrCreateDefaultUser(): User {
