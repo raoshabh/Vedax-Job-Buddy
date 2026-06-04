@@ -9,6 +9,7 @@ import Jobs from './pages/Jobs';
 import Applications from './pages/Applications';
 import AutoApply from './pages/AutoApply';
 import Notifications from './pages/Notifications';
+import Plans from './pages/Plans';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="/applications" element={<Applications />} />
         <Route path="/auto-apply" element={<AutoApply />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/billing" element={<Plans />} />
       </Route>
 
       {/* Default redirect */}

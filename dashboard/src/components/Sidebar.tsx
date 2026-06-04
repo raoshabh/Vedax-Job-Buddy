@@ -6,6 +6,7 @@ import {
   Briefcase,
   Zap,
   MessageCircle,
+  Crown,
   Sparkles,
   Rocket,
   X,
@@ -19,6 +20,7 @@ const navItems = [
   { to: '/auto-apply', label: 'Auto-Apply', icon: Zap },
   { to: '/applications', label: 'Applications', icon: Briefcase },
   { to: '/notifications', label: 'WhatsApp Alerts', icon: MessageCircle },
+  { to: '/billing', label: 'Plans', icon: Crown },
 ];
 
 interface SidebarProps {

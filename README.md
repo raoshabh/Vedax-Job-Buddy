@@ -127,13 +127,25 @@ Per-job, "Copilot not spam" tailoring — the heart of the product strategy.
 - **UI:** `/auto-apply` — enable toggle, Prepare/Auto mode, daily cap, match-score slider, "Run now", and run history.
 - **MCP tool:** `jobtracker_auto_apply`.
 
+## 💳 Billing & Freemium
+
+- **Razorpay** (India-first) subscriptions with a **demo mode** when keys are absent (upgrade simulated locally for dev/demo).
+- **Free vs Pro entitlements**, enforced server-side:
+  | | Free | Pro (₹799/mo) |
+  |---|---|---|
+  | AI tailorings | 5 / month | 1000 / month |
+  | Auto-apply | 3 / day | 25 / day |
+  | WhatsApp digest | — | ✅ |
+- Plans page with live usage meter, upgrade (Razorpay Checkout / demo), and cancel.
+- Gates return `402 { upgrade: true }` so the UI can prompt upgrades.
+
 ## 🗺️ Roadmap
 
 - [x] WhatsApp daily digest ("jobs applied today") — Meta Cloud API + mock mode
 - [x] AI resume + cover-letter tailoring per job — Claude Sonnet 4.6 + template fallback
 - [x] Safe auto-apply pipeline (direct-ATS) — guardrails + dry-run submission
+- [x] Billing (Razorpay) + freemium tiers — Free/Pro entitlements enforced
 - [ ] Live ATS submission via employer-authorized integration
-- [ ] Billing (Razorpay) + freemium tiers
 - [ ] Next.js rebuild (SSR for job-page SEO) + Postgres + Typesense
 
 ## ⚠️ Notes

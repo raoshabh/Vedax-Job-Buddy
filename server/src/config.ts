@@ -68,6 +68,12 @@ export const config = {
   // Source prefixes eligible for auto-apply. Direct-ATS only (legally safe lane).
   autoApplySources: envList('AUTO_APPLY_SOURCES', ['greenhouse', 'lever', 'ashby']),
 
+  // ── Billing (Razorpay; demo/mock mode when keys absent) ──
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || '',
+  razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+  proPriceInr: envNum('PRO_PRICE_INR', 799),
+
   // ── WhatsApp daily digest (Meta Cloud API; console/mock fallback) ──
   whatsappToken: process.env.WHATSAPP_TOKEN || '',
   whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',

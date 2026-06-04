@@ -15,6 +15,7 @@ import type {
   DailyDigest,
   AutoApplyConfig,
   AutoApplyRun,
+  Subscription,
 } from './types.js';
 import type { NormalizedJob } from './jobs/types.js';
 import { scoreJob } from './jobs/match.js';
@@ -166,6 +167,28 @@ function initTables(db: SqlJsDatabase): void {
       skipped INTEGER NOT NULL DEFAULT 0,
       summary TEXT,
       started_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      user_id TEXT PRIMARY KEY,
+      plan TEXT NOT NULL DEFAULT 'free',
+      status TEXT NOT NULL DEFAULT 'active',
+      current_period_end TEXT,
+      provider TEXT NOT NULL DEFAULT 'mock',
+      provider_ref TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      created_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
@@ -735,6 +758,65 @@ export function countAutoPreparedToday(userId: string, dateStr: string): number 
     [userId, dateStr]
   );
   return row?.total || 0;
+}
+
+// ── Billing: subscriptions & usage ──
+
+export function getSubscription(userId: string): Subscription | undefined {
+  return queryOne<Subscription>('SELECT * FROM subscriptions WHERE user_id = ?', [userId]);
+}
+
+export function upsertSubscription(
+  userId: string,
+  data: { plan?: 'free' | 'pro'; status?: string; current_period_end?: string | null; provider?: string; provider_ref?: string | null }
+): Subscription {
+  const now = new Date().toISOString();
+  const existing = getSubscription(userId);
+  if (existing) {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined) { fields.push(`${k} = ?`); values.push(v); }
+    }
+    fields.push('updated_at = ?'); values.push(now);
+    values.push(userId);
+    execute(`UPDATE subscriptions SET ${fields.join(', ')} WHERE user_id = ?`, values);
+  } else {
+    execute(
+      `INSERT INTO subscriptions (user_id, plan, status, current_period_end, provider, provider_ref, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userId,
+        data.plan ?? 'free',
+        data.status ?? 'active',
+        data.current_period_end ?? null,
+        data.provider ?? 'mock',
+        data.provider_ref ?? null,
+        now,
+        now,
+      ]
+    );
+  }
+  return getSubscription(userId)!;
+}
+
+export function logUsage(userId: string, kind: string): void {
+  execute('INSERT INTO usage_events (id, user_id, kind, created_at) VALUES (?, ?, ?, ?)', [
+    uuidv4(),
+    userId,
+    kind,
+    new Date().toISOString(),
+  ]);
+}
+
+/** Count usage events of a kind since the start of the current UTC month. */
+export function countUsageThisMonth(userId: string, kind: string): number {
+  const monthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const row = queryOne<{ count: number }>(
+    "SELECT COUNT(*) as count FROM usage_events WHERE user_id = ? AND kind = ? AND substr(created_at, 1, 7) = ?",
+    [userId, kind, monthPrefix]
+  );
+  return row?.count || 0;
 }
 
 export function getOrCreateDefaultUser(): User {

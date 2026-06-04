@@ -21,6 +21,7 @@ import {
 } from '../db.js';
 import { tailorApplication } from '../ai/tailor.js';
 import { submitToAts, LIVE_SUBMISSION_ENABLED } from './submit.js';
+import { getEntitlements } from '../billing/entitlements.js';
 import type { Job } from '../types.js';
 
 export interface AutoApplyItem {
@@ -60,7 +61,10 @@ export async function runAutoApply(
 ): Promise<AutoApplyResult> {
   const cfg = getAutoApplyConfig(userId);
   const mode = (cfg?.mode as 'prepare' | 'auto') ?? 'prepare';
-  const dailyCap = cfg?.daily_cap ?? config.autoApplyDailyCap;
+  const userCap = cfg?.daily_cap ?? config.autoApplyDailyCap;
+  // Plan caps the user's configured daily limit (Free=3/day, Pro=25/day).
+  const ent = getEntitlements(userId);
+  const dailyCap = Math.min(userCap, ent.autoApplyDailyCap);
   const minScore = cfg?.min_score ?? config.autoApplyMinScore;
 
   const profile = getProfile(userId);

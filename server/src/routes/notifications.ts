@@ -3,6 +3,7 @@ import { authMiddleware } from '../auth.js';
 import { getWhatsappPrefs, upsertWhatsappPrefs } from '../db.js';
 import { sendDigestNow } from '../notifications/scheduler.js';
 import { whatsappConfigured } from '../notifications/whatsapp.js';
+import { getEntitlements } from '../billing/entitlements.js';
 import { config } from '../config.js';
 
 const router = Router();
@@ -51,6 +52,14 @@ router.put('/whatsapp', (req: Request, res: Response): void => {
     }
     if (opted_in && !phone && !getWhatsappPrefs(req.userId!)?.phone) {
       res.status(400).json({ error: 'Add a WhatsApp number before opting in' });
+      return;
+    }
+    // WhatsApp daily digest is a Pro feature.
+    if (opted_in && !getEntitlements(req.userId!).whatsapp) {
+      res.status(402).json({
+        error: 'WhatsApp daily digests are a Pro feature. Upgrade to enable them.',
+        upgrade: true,
+      });
       return;
     }
 

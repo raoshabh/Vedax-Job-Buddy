@@ -102,6 +102,17 @@ export interface AutoApplyRun {
   started_at: string;
 }
 
+export interface Subscription {
+  user_id: string;
+  plan: 'free' | 'pro';
+  status: string; // 'active' | 'cancelled' | ...
+  current_period_end: string | null; // ISO; null for free
+  provider: string; // 'mock' | 'razorpay'
+  provider_ref: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Express request augmentation
 declare global {
   namespace Express {

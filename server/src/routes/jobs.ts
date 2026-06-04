@@ -7,10 +7,13 @@ import {
   getJobsStats,
   getTailoring,
   saveTailoring,
+  logUsage,
+  countUsageThisMonth,
 } from '../db.js';
 import { ensureFreshJobs, ingestJobs } from '../jobs/ingest.js';
 import { tailorApplication } from '../ai/tailor.js';
 import { aiEnabled } from '../ai/client.js';
+import { getEntitlements } from '../billing/entitlements.js';
 
 const router = Router();
 
@@ -86,9 +89,21 @@ router.post('/:id/tailor', async (req: Request, res: Response): Promise<void> =>
       }
     }
 
+    // Freemium quota: generating a new/refreshed tailoring counts against the plan.
+    const ent = getEntitlements(req.userId!);
+    const used = countUsageThisMonth(req.userId!, 'tailor');
+    if (ent.plan === 'free' && used >= ent.aiTailorsPerMonth) {
+      res.status(402).json({
+        error: `You've used all ${ent.aiTailorsPerMonth} AI tailorings on the Free plan this month. Upgrade to Pro for more.`,
+        upgrade: true,
+      });
+      return;
+    }
+
     const profile = getProfile(req.userId!);
     const { data, source } = await tailorApplication(profile, job);
     saveTailoring(req.userId!, jobId, data, source);
+    logUsage(req.userId!, 'tailor');
 
     res.json({ tailoring: data, source, cached: false, ai_enabled: aiEnabled() });
   } catch (err) {

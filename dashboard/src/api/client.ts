@@ -303,6 +303,73 @@ export async function getTailoring(jobId: string): Promise<TailorResult | null> 
   return { tailoring: mapTailoring(data.tailoring), source: data.source ?? 'template', cached: true };
 }
 
+// ---- Billing ----
+
+export interface PlanLimits {
+  aiTailorsPerMonth: number;
+  autoApplyDailyCap: number;
+  whatsapp: boolean;
+}
+
+export interface BillingStatus {
+  plan: 'free' | 'pro';
+  status: string;
+  currentPeriodEnd: string | null;
+  entitlements: PlanLimits & { plan: 'free' | 'pro' };
+  limits: { free: PlanLimits; pro: PlanLimits };
+  tailorsThisMonth: number;
+  billingLive: boolean;
+  priceInr: number;
+}
+
+export async function getBillingStatus(): Promise<BillingStatus> {
+  const d = await request<{
+    plan: 'free' | 'pro';
+    status: string;
+    current_period_end: string | null;
+    entitlements: PlanLimits & { plan: 'free' | 'pro' };
+    limits: { free: PlanLimits; pro: PlanLimits };
+    usage: { tailors_this_month: number };
+    billing_live: boolean;
+    price_inr: number;
+  }>('/billing/status');
+  return {
+    plan: d.plan,
+    status: d.status,
+    currentPeriodEnd: d.current_period_end,
+    entitlements: d.entitlements,
+    limits: d.limits,
+    tailorsThisMonth: d.usage.tailors_this_month,
+    billingLive: d.billing_live,
+    priceInr: d.price_inr,
+  };
+}
+
+export interface CheckoutResult {
+  provider: 'mock' | 'razorpay';
+  order?: { id: string; amount: number; currency: string; key_id: string };
+}
+
+export function startCheckout(): Promise<CheckoutResult> {
+  return request<CheckoutResult>('/billing/checkout', { method: 'POST', body: '{}' });
+}
+
+export function activateDemo(): Promise<{ plan: string; demo: boolean; current_period_end: string }> {
+  return request('/billing/activate', { method: 'POST', body: '{}' });
+}
+
+export function verifyPayment(payload: {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}): Promise<{ plan: string }> {
+  return request('/billing/verify', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function cancelPlan(): Promise<{ plan: string; status: string }> {
+  return request('/billing/cancel', { method: 'POST', body: '{}' });
+}
+
 // ---- Auto-apply pipeline ----
 
 export interface AutoApplyConfig {
