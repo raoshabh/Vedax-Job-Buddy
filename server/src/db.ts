@@ -1,0 +1,512 @@
+import initSqlJs, { type Database } from 'sql.js';
+type SqlJsDatabase = Database;
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import type { User, Profile, Job, Application, DashboardStats, Activity } from './types.js';
+import type { NormalizedJob } from './jobs/types.js';
+import { scoreJob } from './jobs/match.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+const DB_PATH = path.join(DATA_DIR, 'jobtracker.db');
+
+let dbInstance: SqlJsDatabase | null = null;
+
+function saveDb(): void {
+  if (dbInstance) {
+    const data = dbInstance.export();
+    const buffer = Buffer.from(data);
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DB_PATH, buffer);
+  }
+}
+
+export async function initDb(): Promise<SqlJsDatabase> {
+  if (dbInstance) return dbInstance;
+
+  const SQL = await initSqlJs();
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+
+  if (fs.existsSync(DB_PATH)) {
+    const fileBuffer = fs.readFileSync(DB_PATH);
+    dbInstance = new SQL.Database(fileBuffer);
+  } else {
+    dbInstance = new SQL.Database();
+  }
+
+  dbInstance.run('PRAGMA journal_mode = WAL');
+  dbInstance.run('PRAGMA foreign_keys = ON');
+  initTables(dbInstance);
+  saveDb();
+
+  return dbInstance;
+}
+
+export function getDb(): SqlJsDatabase {
+  if (!dbInstance) {
+    throw new Error('Database not initialized. Call initDb() first.');
+  }
+  return dbInstance;
+}
+
+function initTables(db: SqlJsDatabase): void {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS profiles (
+      user_id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      cities TEXT NOT NULL DEFAULT '[]',
+      salary_min INTEGER NOT NULL DEFAULT 0,
+      salary_max INTEGER NOT NULL DEFAULT 0,
+      experience_years INTEGER NOT NULL DEFAULT 0,
+      skills TEXT NOT NULL DEFAULT '[]',
+      summary TEXT NOT NULL DEFAULT '',
+      resume_path TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS jobs (
+      id TEXT PRIMARY KEY,
+      external_id TEXT,
+      title TEXT NOT NULL,
+      company TEXT NOT NULL,
+      location TEXT NOT NULL,
+      salary_min INTEGER NOT NULL DEFAULT 0,
+      salary_max INTEGER NOT NULL DEFAULT 0,
+      description TEXT NOT NULL DEFAULT '',
+      url TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT '',
+      remote INTEGER NOT NULL DEFAULT 0,
+      employment_type TEXT NOT NULL DEFAULT '',
+      match_score REAL NOT NULL DEFAULT 0,
+      posted_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS applications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      job_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      applied_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      notes TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    )
+  `);
+
+  migrateJobsTable(db);
+
+  // One-time cleanup: purge legacy mock jobs from the prototype. Every real
+  // ingested job carries an external_id, so NULL rows are pre-migration mocks.
+  // (Cascades to their throwaway test applications via the FK.)
+  db.run("DELETE FROM jobs WHERE external_id IS NULL");
+
+  // Dedupe key for ingested jobs (NULL external_id rows remain distinct).
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_source_ext ON jobs(source, external_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_jobs_posted ON jobs(posted_at)');
+}
+
+/** Additive migration: add columns introduced after the first release. */
+function migrateJobsTable(db: SqlJsDatabase): void {
+  const cols = new Set<string>();
+  const stmt = db.prepare('PRAGMA table_info(jobs)');
+  while (stmt.step()) {
+    const row = stmt.getAsObject() as { name?: string };
+    if (row.name) cols.add(row.name);
+  }
+  stmt.free();
+
+  const additions: Array<[string, string]> = [
+    ['external_id', 'ALTER TABLE jobs ADD COLUMN external_id TEXT'],
+    ['remote', 'ALTER TABLE jobs ADD COLUMN remote INTEGER NOT NULL DEFAULT 0'],
+    ['employment_type', "ALTER TABLE jobs ADD COLUMN employment_type TEXT NOT NULL DEFAULT ''"],
+  ];
+  for (const [col, sql] of additions) {
+    if (!cols.has(col)) db.run(sql);
+  }
+}
+
+// Helper to run a query and get one row as an object
+function queryOne<T>(sql: string, params: unknown[] = []): T | undefined {
+  const db = getDb();
+  const stmt = db.prepare(sql);
+  stmt.bind(params.map(p => p === undefined ? null : p));
+  if (stmt.step()) {
+    const cols = stmt.getColumnNames();
+    const vals = stmt.get();
+    stmt.free();
+    const row: Record<string, unknown> = {};
+    for (let i = 0; i < cols.length; i++) {
+      row[cols[i]] = vals[i];
+    }
+    return row as T;
+  }
+  stmt.free();
+  return undefined;
+}
+
+// Helper to run a query and get all rows as objects
+function queryAll<T>(sql: string, params: unknown[] = []): T[] {
+  const db = getDb();
+  const stmt = db.prepare(sql);
+  stmt.bind(params.map(p => p === undefined ? null : p));
+  const results: T[] = [];
+  while (stmt.step()) {
+    const cols = stmt.getColumnNames();
+    const vals = stmt.get();
+    const row: Record<string, unknown> = {};
+    for (let i = 0; i < cols.length; i++) {
+      row[cols[i]] = vals[i];
+    }
+    results.push(row as T);
+  }
+  stmt.free();
+  return results;
+}
+
+// Helper to execute a write statement
+function execute(sql: string, params: unknown[] = []): void {
+  const db = getDb();
+  db.run(sql, params.map(p => p === undefined ? null : p));
+  saveDb();
+}
+
+// ── User helpers ──
+
+export function getUser(emailOrId: string): User | undefined {
+  return queryOne<User>('SELECT * FROM users WHERE email = ? OR id = ?', [emailOrId, emailOrId]);
+}
+
+export function createUser(email: string, name: string, passwordHash: string): User {
+  const id = uuidv4();
+  const created_at = new Date().toISOString();
+  execute(
+    'INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)',
+    [id, email, name, passwordHash, created_at]
+  );
+  return { id, email, name, password_hash: passwordHash, created_at };
+}
+
+// ── Profile helpers ──
+
+export function getProfile(userId: string): Profile | undefined {
+  return queryOne<Profile>('SELECT * FROM profiles WHERE user_id = ?', [userId]);
+}
+
+export function upsertProfile(userId: string, data: Partial<Omit<Profile, 'user_id'>>): Profile {
+  const existing = getProfile(userId);
+
+  if (existing) {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+
+    if (fields.length > 0) {
+      values.push(userId);
+      execute(`UPDATE profiles SET ${fields.join(', ')} WHERE user_id = ?`, values);
+    }
+  } else {
+    const cols = ['user_id', ...Object.keys(data).filter(k => data[k as keyof typeof data] !== undefined)];
+    const vals: unknown[] = [userId, ...Object.values(data).filter(v => v !== undefined)];
+    const placeholders = cols.map(() => '?').join(', ');
+    execute(`INSERT INTO profiles (${cols.join(', ')}) VALUES (${placeholders})`, vals);
+  }
+
+  return getProfile(userId)!;
+}
+
+// ── Job helpers ──
+
+/**
+ * Bulk-insert ingested jobs, skipping duplicates via the (source, external_id)
+ * unique index. Returns the number of NEW rows inserted. Saves once at the end.
+ */
+export function upsertJobs(jobs: NormalizedJob[]): number {
+  if (jobs.length === 0) return 0;
+  const db = getDb();
+  const now = new Date().toISOString();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO jobs
+      (id, external_id, title, company, location, salary_min, salary_max,
+       description, url, source, remote, employment_type, match_score, posted_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+  );
+
+  let inserted = 0;
+  for (const j of jobs) {
+    stmt.run([
+      uuidv4(),
+      j.external_id,
+      j.title,
+      j.company,
+      j.location,
+      Math.round(j.salary_min || 0),
+      Math.round(j.salary_max || 0),
+      j.description || '',
+      j.url || '',
+      j.source,
+      j.remote ? 1 : 0,
+      j.employment_type || '',
+      j.posted_at || now,
+      now,
+    ]);
+    inserted += db.getRowsModified();
+  }
+  stmt.free();
+  saveDb();
+  return inserted;
+}
+
+/** Count of stored jobs + timestamp of the most-recently ingested one. */
+export function getJobsStats(): { count: number; newest_created_at: string | null } {
+  const row = queryOne<{ count: number; newest: string | null }>(
+    'SELECT COUNT(*) as count, MAX(created_at) as newest FROM jobs'
+  );
+  return { count: row?.count || 0, newest_created_at: row?.newest || null };
+}
+
+/**
+ * Search stored jobs with optional filters, then rank by profile match score.
+ * When no profile is supplied, results fall back to recency order (neutral score).
+ */
+export function searchStoredJobs(
+  profile: Profile | undefined,
+  opts: { query?: string; location?: string; salaryMin?: number; limit?: number } = {}
+): Job[] {
+  const { query, location, salaryMin } = opts;
+  const limit = opts.limit ?? 30;
+
+  let sql = 'SELECT * FROM jobs WHERE 1=1';
+  const params: unknown[] = [];
+
+  if (query) {
+    sql += ' AND (LOWER(title) LIKE ? OR LOWER(company) LIKE ? OR LOWER(description) LIKE ?)';
+    const like = `%${query.toLowerCase()}%`;
+    params.push(like, like, like);
+  }
+  if (location) {
+    sql += ' AND LOWER(location) LIKE ?';
+    params.push(`%${location.toLowerCase()}%`);
+  }
+  if (salaryMin && salaryMin > 0) {
+    // Keep jobs that meet the floor OR have no salary data (don't hide them).
+    sql += ' AND (salary_max = 0 OR salary_max >= ?)';
+    params.push(salaryMin);
+  }
+
+  // Pre-rank candidate pool by recency, then score in memory.
+  sql += ' ORDER BY posted_at DESC LIMIT 400';
+
+  const rows = queryAll<Job>(sql, params);
+  const scored = rows.map((job) => ({ ...job, match_score: scoreJob(job, profile) }));
+  scored.sort((a, b) => {
+    if (b.match_score !== a.match_score) return b.match_score - a.match_score;
+    return new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime();
+  });
+  return scored.slice(0, limit);
+}
+
+export function getJob(jobId: string): Job | undefined {
+  return queryOne<Job>('SELECT * FROM jobs WHERE id = ?', [jobId]);
+}
+
+export function createJob(job: Job): Job {
+  const now = new Date().toISOString();
+  execute(
+    `INSERT OR REPLACE INTO jobs (id, title, company, location, salary_min, salary_max, description, url, source, match_score, posted_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [job.id, job.title, job.company, job.location, job.salary_min, job.salary_max, job.description, job.url, job.source, job.match_score, job.posted_at, now]
+  );
+  return job;
+}
+
+export function createApplication(userId: string, jobId: string, notes?: string): Application {
+  const id = uuidv4();
+  const now = new Date().toISOString();
+
+  execute(
+    `INSERT INTO applications (id, user_id, job_id, status, applied_at, updated_at, notes) VALUES (?, ?, ?, 'queued', ?, ?, ?)`,
+    [id, userId, jobId, now, now, notes || null]
+  );
+
+  const app = queryOne<Application>('SELECT * FROM applications WHERE id = ?', [id])!;
+  const job = getJob(jobId);
+  return { ...app, job };
+}
+
+export function getApplications(userId: string, status?: string, limit: number = 20, offset: number = 0): Application[] {
+  let sql = `
+    SELECT a.id, a.user_id, a.job_id, a.status, a.applied_at, a.updated_at, a.notes,
+           j.title as job_title, j.company as job_company, j.location as job_location,
+           j.salary_min as job_salary_min, j.salary_max as job_salary_max, j.description as job_description,
+           j.url as job_url, j.source as job_source, j.match_score as job_match_score, j.posted_at as job_posted_at
+    FROM applications a
+    LEFT JOIN jobs j ON a.job_id = j.id
+    WHERE a.user_id = ?
+  `;
+  const params: unknown[] = [userId];
+
+  if (status) {
+    sql += ' AND a.status = ?';
+    params.push(status);
+  }
+
+  sql += ' ORDER BY a.updated_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  const rows = queryAll<Record<string, unknown>>(sql, params);
+
+  return rows.map(row => ({
+    id: row.id as string,
+    user_id: row.user_id as string,
+    job_id: row.job_id as string,
+    status: row.status as Application['status'],
+    applied_at: row.applied_at as string,
+    updated_at: row.updated_at as string,
+    notes: row.notes as string | null,
+    job: row.job_title ? {
+      id: row.job_id as string,
+      title: row.job_title as string,
+      company: row.job_company as string,
+      location: row.job_location as string,
+      salary_min: row.job_salary_min as number,
+      salary_max: row.job_salary_max as number,
+      description: row.job_description as string,
+      url: row.job_url as string,
+      source: row.job_source as string,
+      match_score: row.job_match_score as number,
+      posted_at: row.job_posted_at as string,
+    } : undefined,
+  }));
+}
+
+export function getApplication(applicationId: string): Application | undefined {
+  const row = queryOne<Record<string, unknown>>(`
+    SELECT a.id, a.user_id, a.job_id, a.status, a.applied_at, a.updated_at, a.notes,
+           j.title as job_title, j.company as job_company, j.location as job_location,
+           j.salary_min as job_salary_min, j.salary_max as job_salary_max, j.description as job_description,
+           j.url as job_url, j.source as job_source, j.match_score as job_match_score, j.posted_at as job_posted_at
+    FROM applications a
+    LEFT JOIN jobs j ON a.job_id = j.id
+    WHERE a.id = ?
+  `, [applicationId]);
+
+  if (!row) return undefined;
+
+  return {
+    id: row.id as string,
+    user_id: row.user_id as string,
+    job_id: row.job_id as string,
+    status: row.status as Application['status'],
+    applied_at: row.applied_at as string,
+    updated_at: row.updated_at as string,
+    notes: row.notes as string | null,
+    job: row.job_title ? {
+      id: row.job_id as string,
+      title: row.job_title as string,
+      company: row.job_company as string,
+      location: row.job_location as string,
+      salary_min: row.job_salary_min as number,
+      salary_max: row.job_salary_max as number,
+      description: row.job_description as string,
+      url: row.job_url as string,
+      source: row.job_source as string,
+      match_score: row.job_match_score as number,
+      posted_at: row.job_posted_at as string,
+    } : undefined,
+  };
+}
+
+export function updateApplicationStatus(applicationId: string, status: string, notes?: string): Application | undefined {
+  const now = new Date().toISOString();
+
+  if (notes !== undefined) {
+    execute('UPDATE applications SET status = ?, updated_at = ?, notes = ? WHERE id = ?', [status, now, notes, applicationId]);
+  } else {
+    execute('UPDATE applications SET status = ?, updated_at = ? WHERE id = ?', [status, now, applicationId]);
+  }
+
+  return getApplication(applicationId);
+}
+
+export function getDashboardStats(userId: string): DashboardStats {
+  const total = queryOne<{ count: number }>('SELECT COUNT(*) as count FROM applications WHERE user_id = ?', [userId]);
+
+  const statusRows = queryAll<{ status: string; count: number }>(
+    'SELECT status, COUNT(*) as count FROM applications WHERE user_id = ? GROUP BY status',
+    [userId]
+  );
+
+  const byStatus: Record<string, number> = {};
+  for (const row of statusRows) {
+    byStatus[row.status] = row.count;
+  }
+
+  const totalApps = total?.count || 0;
+  const responded = (byStatus['screening'] || 0) + (byStatus['interview'] || 0) + (byStatus['offer'] || 0) + (byStatus['rejected'] || 0);
+  const responseRate = totalApps > 0 ? Math.round((responded / totalApps) * 100) : 0;
+
+  const recentRows = queryAll<{ id: string; status: string; updated_at: string; title: string; company: string }>(`
+    SELECT a.id, a.status, a.updated_at, j.title, j.company
+    FROM applications a
+    LEFT JOIN jobs j ON a.job_id = j.id
+    WHERE a.user_id = ?
+    ORDER BY a.updated_at DESC
+    LIMIT 10
+  `, [userId]);
+
+  const recentActivity: Activity[] = recentRows.map(row => ({
+    id: row.id,
+    type: row.status === 'queued' ? 'application_created' : 'status_updated',
+    description: `${row.title} at ${row.company} - ${row.status}`,
+    timestamp: row.updated_at,
+  }));
+
+  return {
+    total_applications: totalApps,
+    by_status: byStatus,
+    response_rate: responseRate,
+    interviews_scheduled: byStatus['interview'] || 0,
+    offers_received: byStatus['offer'] || 0,
+    recent_activity: recentActivity,
+  };
+}
+
+export function getAppliedJobIds(userId: string): string[] {
+  const rows = queryAll<{ job_id: string }>('SELECT job_id FROM applications WHERE user_id = ?', [userId]);
+  return rows.map(r => r.job_id);
+}
+
+export function getOrCreateDefaultUser(): User {
+  const existing = queryOne<User>("SELECT * FROM users WHERE email = 'mcp@jobtracker.local'", []);
+  if (existing) return existing;
+
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  execute(
+    "INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, 'mcp@jobtracker.local', 'MCP User', 'no-password', ?)",
+    [id, now]
+  );
+
+  return { id, email: 'mcp@jobtracker.local', name: 'MCP User', password_hash: 'no-password', created_at: now };
+}
