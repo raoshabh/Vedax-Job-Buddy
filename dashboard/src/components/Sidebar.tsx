@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
+  BarChart3,
   User,
   Search,
   Briefcase,
@@ -15,6 +16,7 @@ import clsx from 'clsx';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/profile', label: 'My Profile', icon: User },
   { to: '/jobs', label: 'Job Search', icon: Search },
   { to: '/auto-apply', label: 'Auto-Apply', icon: Zap },

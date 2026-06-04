@@ -303,6 +303,46 @@ export async function getTailoring(jobId: string): Promise<TailorResult | null> 
   return { tailoring: mapTailoring(data.tailoring), source: data.source ?? 'template', cached: true };
 }
 
+// ---- Analytics ----
+
+export interface Analytics {
+  totals: { applications: number; active: number; interviews: number; offers: number; rejected: number };
+  funnel: { stage: string; count: number }[];
+  bySource: { source: string; count: number }[];
+  topCompanies: { company: string; count: number }[];
+  overTime: { date: string; count: number }[];
+  responseRate: number;
+  interviewRate: number;
+  offerRate: number;
+  avgDaysToResponse: number;
+}
+
+export async function getAnalytics(): Promise<Analytics> {
+  const d = await request<{ analytics: Record<string, unknown> }>('/analytics/overview');
+  const a = d.analytics as {
+    totals: Analytics['totals'];
+    funnel: Analytics['funnel'];
+    by_source: Analytics['bySource'];
+    top_companies: Analytics['topCompanies'];
+    over_time: Analytics['overTime'];
+    response_rate: number;
+    interview_rate: number;
+    offer_rate: number;
+    avg_days_to_response: number;
+  };
+  return {
+    totals: a.totals,
+    funnel: a.funnel,
+    bySource: a.by_source,
+    topCompanies: a.top_companies,
+    overTime: a.over_time,
+    responseRate: a.response_rate,
+    interviewRate: a.interview_rate,
+    offerRate: a.offer_rate,
+    avgDaysToResponse: a.avg_days_to_response,
+  };
+}
+
 // ---- Billing ----
 
 export interface PlanLimits {

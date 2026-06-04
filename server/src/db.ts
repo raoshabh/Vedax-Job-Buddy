@@ -760,6 +760,104 @@ export function countAutoPreparedToday(userId: string, dateStr: string): number 
   return row?.total || 0;
 }
 
+// ── Analytics ──
+
+export interface Analytics {
+  totals: { applications: number; active: number; interviews: number; offers: number; rejected: number };
+  funnel: { stage: string; count: number }[];
+  by_source: { source: string; count: number }[];
+  top_companies: { company: string; count: number }[];
+  over_time: { date: string; count: number }[]; // last 14 days
+  response_rate: number;
+  interview_rate: number;
+  offer_rate: number;
+  avg_days_to_response: number;
+}
+
+const PIPELINE_STAGES = ['queued', 'applied', 'screening', 'interview', 'offer', 'rejected'];
+
+export function getAnalytics(userId: string): Analytics {
+  const rows = queryAll<{
+    status: string;
+    applied_at: string;
+    updated_at: string;
+    company: string | null;
+    source: string | null;
+  }>(
+    `SELECT a.status, a.applied_at, a.updated_at, j.company, j.source
+     FROM applications a LEFT JOIN jobs j ON a.job_id = j.id
+     WHERE a.user_id = ?`,
+    [userId]
+  );
+
+  const total = rows.length;
+  const byStatus: Record<string, number> = {};
+  const bySource: Record<string, number> = {};
+  const byCompany: Record<string, number> = {};
+  const byDay: Record<string, number> = {};
+
+  let respondedDays = 0;
+  let respondedCount = 0;
+  const respondedStatuses = new Set(['screening', 'interview', 'offer', 'rejected']);
+
+  for (const r of rows) {
+    byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+
+    const src = (r.source || 'other').split(':')[0];
+    const srcLabel = src.charAt(0).toUpperCase() + src.slice(1);
+    bySource[srcLabel] = (bySource[srcLabel] || 0) + 1;
+
+    if (r.company) byCompany[r.company] = (byCompany[r.company] || 0) + 1;
+
+    const day = (r.applied_at || '').slice(0, 10);
+    if (day) byDay[day] = (byDay[day] || 0) + 1;
+
+    if (respondedStatuses.has(r.status) && r.applied_at && r.updated_at) {
+      const days = (new Date(r.updated_at).getTime() - new Date(r.applied_at).getTime()) / 86400000;
+      if (days >= 0) {
+        respondedDays += days;
+        respondedCount += 1;
+      }
+    }
+  }
+
+  const responded =
+    (byStatus['screening'] || 0) + (byStatus['interview'] || 0) + (byStatus['offer'] || 0) + (byStatus['rejected'] || 0);
+  const interviews = (byStatus['interview'] || 0) + (byStatus['offer'] || 0);
+  const offers = byStatus['offer'] || 0;
+
+  // Last 14 days continuous series.
+  const overTime: { date: string; count: number }[] = [];
+  const now = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000).toISOString().slice(0, 10);
+    overTime.push({ date: d, count: byDay[d] || 0 });
+  }
+
+  return {
+    totals: {
+      applications: total,
+      active: total - (byStatus['rejected'] || 0),
+      interviews,
+      offers,
+      rejected: byStatus['rejected'] || 0,
+    },
+    funnel: PIPELINE_STAGES.map((stage) => ({ stage, count: byStatus[stage] || 0 })),
+    by_source: Object.entries(bySource)
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count),
+    top_companies: Object.entries(byCompany)
+      .map(([company, count]) => ({ company, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6),
+    over_time: overTime,
+    response_rate: total ? Math.round((responded / total) * 100) : 0,
+    interview_rate: total ? Math.round((interviews / total) * 100) : 0,
+    offer_rate: total ? Math.round((offers / total) * 100) : 0,
+    avg_days_to_response: respondedCount ? Math.round((respondedDays / respondedCount) * 10) / 10 : 0,
+  };
+}
+
 // ── Billing: subscriptions & usage ──
 
 export function getSubscription(userId: string): Subscription | undefined {

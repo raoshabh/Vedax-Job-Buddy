@@ -10,6 +10,7 @@ import applicationRoutes from './routes/applications.js';
 import notificationRoutes from './routes/notifications.js';
 import autoApplyRoutes from './routes/autoapply.js';
 import billingRoutes from './routes/billing.js';
+import analyticsRoutes from './routes/analytics.js';
 import { initDb } from './db.js';
 import { ensureFreshJobs } from './jobs/ingest.js';
 import { startDigestScheduler } from './notifications/scheduler.js';
@@ -39,6 +40,7 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/autoapply', autoApplyRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
