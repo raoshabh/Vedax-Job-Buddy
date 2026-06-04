@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vedax Job Buddy — Your AI job-search co-pilot</title>
+<meta name="description" content="AI finds your best job matches, tailors every application, auto-applies to direct-ATS roles, and tracks your whole journey — with WhatsApp updates. India-first." />
+<meta name="theme-color" content="#060611" />
+<meta property="og:title" content="Vedax Job Buddy" />
+<meta property="og:description" content="AI finds your best job matches, tailors every application, and tracks your journey." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<script>document.documentElement.classList.add('js');</script>
+<style>
+  :root{
+    --bg-deep:#060611; --bg-base:#0a0a16; --bg-elev:#11111f;
+    --surface:rgba(255,255,255,.04); --surface-2:rgba(255,255,255,.07);
+    --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --fg:#EDEDF2; --fg-muted:#9aa0b6; --fg-dim:#6b7280;
+    --indigo:#6366F1; --violet:#8b5cf6; --cyan:#22d3ee; --emerald:#34d399; --amber:#fbbf24;
+    --glow:rgba(99,102,241,.35);
+    --radius:20px; --ease:cubic-bezier(.16,1,.3,1);
+    --maxw:1200px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{
+    margin:0; background:var(--bg-deep); color:var(--fg);
+    font-family:'DM Sans',system-ui,sans-serif; font-size:17px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  h1,h2,h3,.font-display{font-family:'Space Grotesk','DM Sans',sans-serif; letter-spacing:-.02em; line-height:1.08;}
+  a{color:inherit; text-decoration:none}
+  ::selection{background:var(--glow); color:#fff}
+
+  /* ambient background */
+  .bg-field{position:fixed; inset:0; z-index:-2; overflow:hidden; pointer-events:none}
+  .blob{position:absolute; border-radius:50%; filter:blur(70px); opacity:.5; will-change:transform}
+  .blob.b1{width:46vw;height:46vw; top:-12vw; left:-8vw; background:radial-gradient(circle,#4f46e5,transparent 70%)}
+  .blob.b2{width:42vw;height:42vw; top:18vh; right:-10vw; background:radial-gradient(circle,#7c3aed,transparent 70%); opacity:.4}
+  .blob.b3{width:38vw;height:38vw; bottom:-10vw; left:24vw; background:radial-gradient(circle,#06b6d4,transparent 70%); opacity:.22}
+  .grid-overlay{position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+    background-size:64px 64px; mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 80%);}
+  .noise{position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.025;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px}
+  .glass{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 20px 50px -20px rgba(0,0,0,.6);}
+  .chip{display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border-radius:999px;
+    background:var(--surface); border:1px solid var(--border); font-size:13px; color:var(--fg-muted)}
+  .eyebrow{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--violet)}
+  .gradient-text{background:linear-gradient(100deg,#fff 10%,#c7d2fe 40%,#a5b4fc 70%,#67e8f9);
+    -webkit-background-clip:text; background-clip:text; color:transparent}
+
+  /* buttons */
+  .btn{display:inline-flex; align-items:center; gap:9px; font-weight:600; font-size:15px; border-radius:14px;
+    padding:14px 24px; cursor:pointer; border:1px solid transparent; transition:transform .2s var(--ease),box-shadow .2s var(--ease),background .2s}
+  .btn:focus-visible{outline:2px solid var(--indigo); outline-offset:3px}
+  .btn-primary{color:#fff; background:linear-gradient(180deg,#6f72f6,#5457e6); box-shadow:0 10px 30px -8px var(--glow),inset 0 1px 0 rgba(255,255,255,.25)}
+  .btn-primary:hover{transform:translateY(-2px); box-shadow:0 16px 40px -8px var(--glow),inset 0 1px 0 rgba(255,255,255,.3)}
+  .btn-ghost{color:var(--fg); background:var(--surface); border-color:var(--border-2)}
+  .btn-ghost:hover{background:var(--surface-2); transform:translateY(-2px)}
+
+  /* nav */
+  header{position:fixed; top:0; left:0; right:0; z-index:50; transition:background .3s,border-color .3s,backdrop-filter .3s; border-bottom:1px solid transparent}
+  header.scrolled{background:rgba(8,8,18,.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-bottom:1px solid var(--border)}
+  .nav{display:flex; align-items:center; justify-content:space-between; height:68px}
+  .logo{display:flex; align-items:center; gap:10px; font-family:'Space Grotesk'; font-weight:700; font-size:18px}
+  .logo .mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(150deg,#6366F1,#8b5cf6);display:grid;place-items:center;box-shadow:0 6px 18px -6px var(--glow)}
+  .nav-links{display:flex; gap:30px; align-items:center; font-size:15px; color:var(--fg-muted)}
+  .nav-links a{transition:color .2s} .nav-links a:hover{color:var(--fg)}
+  .nav-cta{display:flex; gap:12px; align-items:center}
+  @media(max-width:860px){.nav-links{display:none} .nav-cta .btn-ghost{display:none}}
+
+  /* hero */
+  .hero{position:relative; padding:160px 0 90px; text-align:center; perspective:1400px}
+  .hero h1{font-size:clamp(42px,7vw,84px); font-weight:700; margin:18px 0 0}
+  .hero .sub{max-width:620px; margin:24px auto 0; color:var(--fg-muted); font-size:clamp(17px,2.2vw,20px)}
+  .hero-cta{display:flex; gap:14px; justify-content:center; margin-top:34px; flex-wrap:wrap}
+  .hero-meta{margin-top:22px; color:var(--fg-dim); font-size:14px; display:flex; gap:18px; justify-content:center; flex-wrap:wrap; color:#6b7280}
+
+  /* 3D dashboard mockup */
+  .stage{margin-top:70px; perspective:1600px; transform-style:preserve-3d}
+  .mockup{position:relative; max-width:960px; margin:0 auto; transform-style:preserve-3d; will-change:transform}
+  .mockup .screen{border-radius:18px; overflow:hidden; border:1px solid var(--border-2);
+    box-shadow:0 50px 120px -40px rgba(79,70,229,.55), 0 30px 60px -30px rgba(0,0,0,.8);
+    background:linear-gradient(180deg,#0f0f1d,#0a0a14)}
+  .mockup .bar{display:flex; align-items:center; gap:8px; padding:13px 16px; border-bottom:1px solid var(--border); background:rgba(255,255,255,.02)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .float-card{position:absolute; padding:14px 16px; border-radius:14px; font-size:13px; will-change:transform; z-index:3}
+  .float-card .t{font-weight:600; color:#fff} .float-card .s{color:var(--fg-muted); font-size:12px}
+  .fc-1{top:8%; left:-6%} .fc-2{top:52%; right:-7%} .fc-3{bottom:-7%; left:14%}
+  @media(max-width:760px){.float-card{display:none}}
+
+  /* sections */
+  section{position:relative}
+  .section{padding:100px 0}
+  .sec-head{text-align:center; max-width:680px; margin:0 auto 56px}
+  .sec-head h2{font-size:clamp(30px,4.6vw,50px); font-weight:700; margin:14px 0 0}
+  .sec-head p{color:var(--fg-muted); margin-top:16px; font-size:18px}
+
+  /* marquee */
+  .marquee{overflow:hidden; mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent); padding:8px 0}
+  .marquee-track{display:flex; gap:54px; width:max-content; animation:scrollx 26s linear infinite; color:var(--fg-dim); font-weight:600; font-size:15px; align-items:center}
+  .marquee-track span{display:flex;align-items:center;gap:54px;color:#6b7280;white-space:nowrap}
+  @keyframes scrollx{to{transform:translateX(-50%)}}
+  @media (prefers-reduced-motion:reduce){.marquee-track{animation:none}}
+
+  /* steps */
+  .steps{display:grid; grid-template-columns:repeat(4,1fr); gap:18px; perspective:1200px}
+  @media(max-width:880px){.steps{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.steps{grid-template-columns:1fr}}
+  .step{padding:26px 22px; transform-style:preserve-3d}
+  .step .num{font-family:'Space Grotesk'; font-size:13px; font-weight:700; color:var(--violet); letter-spacing:.1em}
+  .step h3{font-size:19px; margin:14px 0 8px} .step p{color:var(--fg-muted); font-size:15px; margin:0}
+  .step .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(150deg,rgba(99,102,241,.25),rgba(139,92,246,.15));border:1px solid var(--border)}
+
+  /* features bento */
+  .bento{display:grid; grid-template-columns:repeat(6,1fr); gap:18px; perspective:1300px}
+  .feat{padding:28px; transform-style:preserve-3d; transition:transform .3s var(--ease),border-color .3s; position:relative; overflow:hidden}
+  .feat:hover{border-color:var(--border-2)}
+  .feat .ic{width:48px;height:48px;border-radius:13px;display:grid;place-items:center;margin-bottom:18px;
+    background:linear-gradient(150deg,rgba(99,102,241,.3),rgba(34,211,238,.12)); border:1px solid var(--border)}
+  .feat h3{font-size:20px; margin:0 0 8px} .feat p{color:var(--fg-muted); font-size:15px; margin:0}
+  .feat .glowline{position:absolute; inset:0; background:radial-gradient(400px circle at var(--mx,50%) var(--my,0%),rgba(99,102,241,.14),transparent 60%); opacity:0; transition:opacity .3s}
+  .feat:hover .glowline{opacity:1}
+  .c6{grid-column:span 6} .c4{grid-column:span 4} .c3{grid-column:span 3} .c2{grid-column:span 2}
+  @media(max-width:900px){.c6,.c4,.c3,.c2{grid-column:span 6}}
+
+  /* journey (pinned 3D) */
+  .journey{min-height:100vh; display:flex; align-items:center}
+  .journey-track{display:flex; gap:22px; padding:20px 0}
+  .jcard{flex:0 0 320px; padding:30px; transform-style:preserve-3d}
+  .jcard .step-no{font-family:'Space Grotesk'; font-size:46px; font-weight:700; color:rgba(255,255,255,.08); line-height:1}
+  .jcard h3{font-size:22px; margin:6px 0 10px} .jcard p{color:var(--fg-muted); margin:0; font-size:15px}
+
+  /* stats */
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:18px}
+  @media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{padding:30px 24px; text-align:center}
+  .stat .n{font-family:'Space Grotesk'; font-size:clamp(34px,5vw,48px); font-weight:700; background:linear-gradient(180deg,#fff,#a5b4fc); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .stat .l{color:var(--fg-muted); font-size:14px; margin-top:6px}
+
+  /* testimonials */
+  .tgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
+  @media(max-width:860px){.tgrid{grid-template-columns:1fr}}
+  .tcard{padding:26px} .tcard p{font-size:15px; color:#d6d8e2; margin:0 0 18px}
+  .tperson{display:flex; align-items:center; gap:12px}
+  .avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;font-size:15px}
+  .tperson .nm{font-weight:600;font-size:14px} .tperson .rl{color:var(--fg-muted);font-size:13px}
+
+  /* pricing */
+  .prices{display:grid; grid-template-columns:repeat(2,1fr); gap:20px; max-width:840px; margin:0 auto; perspective:1200px}
+  @media(max-width:760px){.prices{grid-template-columns:1fr}}
+  .price{padding:34px; position:relative}
+  .price.pro{border-color:rgba(99,102,241,.5); box-shadow:0 0 0 1px rgba(99,102,241,.25),0 30px 70px -30px var(--glow)}
+  .price .amt{font-family:'Space Grotesk'; font-size:46px; font-weight:700; margin:8px 0}
+  .price ul{list-style:none; padding:0; margin:20px 0 26px; display:flex; flex-direction:column; gap:11px}
+  .price li{display:flex; gap:10px; align-items:flex-start; font-size:15px; color:#d6d8e2}
+  .badge{position:absolute; top:-12px; right:24px; background:linear-gradient(90deg,#6366F1,#8b5cf6); color:#fff; font-size:11px; font-weight:700; padding:5px 12px; border-radius:999px; letter-spacing:.06em}
+
+  /* final cta */
+  .cta-final{padding:120px 0; text-align:center; position:relative}
+  .cta-card{padding:64px 32px; position:relative; overflow:hidden}
+  .cta-card h2{font-size:clamp(32px,5vw,56px); font-weight:700; margin:0}
+  .cta-glow{position:absolute; width:600px;height:600px; left:50%; top:50%; transform:translate(-50%,-50%); background:radial-gradient(circle,rgba(99,102,241,.3),transparent 60%); filter:blur(40px); z-index:0}
+
+  footer{border-top:1px solid var(--border); padding:40px 0; color:var(--fg-dim); font-size:14px; color:#6b7280}
+  .foot{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px}
+
+  .reveal-init{opacity:0}
+  .js .reveal{opacity:0}
+  @media (prefers-reduced-motion:reduce){.js .reveal{opacity:1 !important; transform:none !important}}
+  svg{display:block}
+  .accent{color:#a5b4fc}
+</style>
+</head>
+<body>
+
+<div class="bg-field">
+  <div class="blob b1" data-depth="0.4"></div>
+  <div class="blob b2" data-depth="0.7"></div>
+  <div class="blob b3" data-depth="0.55"></div>
+</div>
+<div class="grid-overlay"></div>
+<div class="noise"></div>
+
+<!-- NAV -->
+<header id="header">
+  <div class="wrap nav">
+    <div class="logo"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 5l7 14 7-14" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Vedax Job Buddy</div>
+    <nav class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">Stories</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="http://localhost:3001">Log in</a>
+      <a class="btn btn-primary" href="http://localhost:3001">Get started</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <span class="chip reveal" data-reveal>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#34d399" stroke-width="2"/><path d="M8 12l3 3 5-6" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      India-first · Real ATS jobs · No spray-apply
+    </span>
+    <h1 class="reveal" data-reveal>Your AI job-search<br><span class="gradient-text">co-pilot</span></h1>
+    <p class="sub reveal" data-reveal>Vedax Job Buddy finds your best matches, tailors every application, applies to the right roles, and tracks your whole journey — so you apply <em class="accent">well</em>, not everywhere.</p>
+    <div class="hero-cta reveal" data-reveal>
+      <a class="btn btn-primary" href="http://localhost:3001">Start free
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="#how">See how it works</a>
+    </div>
+    <div class="hero-meta reveal" data-reveal>
+      <span>★★★★★ Loved by job seekers</span><span>·</span><span>Greenhouse · Lever · Remotive</span><span>·</span><span>WhatsApp updates</span>
+    </div>
+
+    <!-- 3D mockup -->
+    <div class="stage">
+      <div class="mockup" id="mockup">
+        <div class="glass float-card fc-1" data-float="1.4"><div class="t">✦ 92% match</div><div class="s">Senior Engineer · Bangalore</div></div>
+        <div class="glass float-card fc-2" data-float="-1.2"><div class="t">Auto-applied · 4 today</div><div class="s">Direct-ATS · safe lane</div></div>
+        <div class="glass float-card fc-3" data-float="1.0"><div class="t">📱 WhatsApp digest sent</div><div class="s">2 moved to interview</div></div>
+        <div class="screen">
+          <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+            <span style="margin-left:12px;font-size:12px;color:var(--fg-muted)">app.vedax.jobs/dashboard</span></div>
+          <div style="padding:22px;display:grid;grid-template-columns:200px 1fr;gap:18px;min-height:340px">
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <div style="height:30px;border-radius:8px;background:linear-gradient(90deg,#6366F1,#8b5cf6);width:75%"></div>
+              <div style="height:13px;border-radius:6px;background:var(--surface-2);width:90%;margin-top:8px"></div>
+              <div style="height:13px;border-radius:6px;background:var(--surface-2);width:70%"></div>
+              <div style="height:13px;border-radius:6px;background:rgba(99,102,241,.35);width:80%"></div>
+              <div style="height:13px;border-radius:6px;background:var(--surface-2);width:60%"></div>
+              <div style="margin-top:auto;height:40px;border-radius:10px;background:var(--surface)"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+                <div style="padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--border)"><div style="font-family:Space Grotesk;font-size:26px;font-weight:700;color:#a5b4fc">55%</div><div style="font-size:11px;color:var(--fg-muted)">Response rate</div></div>
+                <div style="padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--border)"><div style="font-family:Space Grotesk;font-size:26px;font-weight:700;color:#67e8f9">12</div><div style="font-size:11px;color:var(--fg-muted)">Interviews</div></div>
+                <div style="padding:16px;border-radius:12px;background:var(--surface);border:1px solid var(--border)"><div style="font-family:Space Grotesk;font-size:26px;font-weight:700;color:#34d399">3</div><div style="font-size:11px;color:var(--fg-muted)">Offers</div></div>
+              </div>
+              <div style="flex:1;border-radius:12px;background:var(--surface);border:1px solid var(--border);padding:16px;display:flex;align-items:flex-end;gap:8px">
+                <div style="flex:1;height:40%;background:linear-gradient(180deg,#6366F1,#4338ca);border-radius:5px"></div>
+                <div style="flex:1;height:65%;background:linear-gradient(180deg,#6366F1,#4338ca);border-radius:5px"></div>
+                <div style="flex:1;height:50%;background:linear-gradient(180deg,#6366F1,#4338ca);border-radius:5px"></div>
+                <div style="flex:1;height:80%;background:linear-gradient(180deg,#8b5cf6,#6d28d9);border-radius:5px"></div>
+                <div style="flex:1;height:95%;background:linear-gradient(180deg,#22d3ee,#0891b2);border-radius:5px"></div>
+                <div style="flex:1;height:70%;background:linear-gradient(180deg,#6366F1,#4338ca);border-radius:5px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>GREENHOUSE&nbsp;&nbsp;•&nbsp;&nbsp;LEVER&nbsp;&nbsp;•&nbsp;&nbsp;ASHBY&nbsp;&nbsp;•&nbsp;&nbsp;REMOTIVE&nbsp;&nbsp;•&nbsp;&nbsp;ADZUNA&nbsp;&nbsp;•&nbsp;&nbsp;CLAUDE&nbsp;&nbsp;•&nbsp;&nbsp;WHATSAPP&nbsp;&nbsp;•&nbsp;&nbsp;RAZORPAY&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+    <span>GREENHOUSE&nbsp;&nbsp;•&nbsp;&nbsp;LEVER&nbsp;&nbsp;•&nbsp;&nbsp;ASHBY&nbsp;&nbsp;•&nbsp;&nbsp;REMOTIVE&nbsp;&nbsp;•&nbsp;&nbsp;ADZUNA&nbsp;&nbsp;•&nbsp;&nbsp;CLAUDE&nbsp;&nbsp;•&nbsp;&nbsp;WHATSAPP&nbsp;&nbsp;•&nbsp;&nbsp;RAZORPAY&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow reveal" data-reveal>How it works</span>
+      <h2 class="reveal" data-reveal>From profile to offer,<br>on autopilot</h2>
+      <p class="reveal" data-reveal>Four steps. You stay in control at every one.</p>
+    </div>
+    <div class="steps">
+      <div class="glass step reveal" data-reveal data-stagger>
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#a5b4fc" stroke-width="2"/><path d="M16 16l4 4" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"/></svg></div>
+        <div class="num" style="margin-top:16px">STEP 01</div><h3>Discover</h3>
+        <p>Real jobs from Greenhouse, Lever, Remotive & Adzuna — matched to your profile, India-first.</p>
+      </div>
+      <div class="glass step reveal" data-reveal data-stagger>
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 19l1.5-5L17 3.5a2.1 2.1 0 013 3L9.5 17 5 19z" stroke="#a5b4fc" stroke-width="2" stroke-linejoin="round"/></svg></div>
+        <div class="num" style="margin-top:16px">STEP 02</div><h3>Tailor</h3>
+        <p>AI writes a tailored cover letter, surfaces ATS keywords, and rates your fit for each role.</p>
+      </div>
+      <div class="glass step reveal" data-reveal data-stagger>
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="num" style="margin-top:16px">STEP 03</div><h3>Apply</h3>
+        <p>One-tap apply, or safe auto-apply to direct-ATS roles — never spray, never banned.</p>
+      </div>
+      <div class="glass step reveal" data-reveal data-stagger>
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-8" stroke="#67e8f9" stroke-width="2" stroke-linecap="round"/></svg></div>
+        <div class="num" style="margin-top:16px">STEP 04</div><h3>Track</h3>
+        <p>A live pipeline, analytics, interview prep, and a daily WhatsApp digest of your progress.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES BENTO -->
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow reveal" data-reveal>Features</span>
+      <h2 class="reveal" data-reveal>Everything a job hunt needs</h2>
+      <p class="reveal" data-reveal>Quality over quantity — built to get you interviews, not bans.</p>
+    </div>
+    <div class="bento">
+      <div class="glass feat c4 reveal tilt" data-reveal data-stagger>
+        <div class="glowline"></div>
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.6.9-5.5-4-3.9 5.5-.8L12 3z" stroke="#a5b4fc" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+        <h3>AI application tailoring</h3>
+        <p>Claude writes a personalized cover letter, pulls ATS keywords, and gives concrete resume tips for every job — grounded in your real profile, never fabricated.</p>
+      </div>
+      <div class="glass feat c2 reveal tilt" data-reveal data-stagger>
+        <div class="glowline"></div>
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" stroke="#67e8f9" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+        <h3>Safe auto-apply</h3>
+        <p>Direct-ATS only. Guardrails, dedupe, daily caps.</p>
+      </div>
+      <div class="glass feat c2 reveal tilt" data-reveal data-stagger>
+        <div class="glowline"></div>
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.5 8.5 0 01-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1121 11.5z" stroke="#34d399" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+        <h3>WhatsApp digest</h3>
+        <p>A daily "here's your progress" message, India-native.</p>
+      </div>
+      <div class="glass feat c4 reveal tilt" data-reveal data-stagger>
+        <div class="glowline"></div>
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19V5M4 19h16M8 15v-4M12 15V7M16 15v-6" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <h3>Analytics & insights</h3>
+        <p>See your funnel, response/interview/offer rates, time-to-response, and which sources convert — so you can adjust strategy with data, not guesses.</p>
+      </div>
+      <div class="glass feat c3 reveal tilt" data-reveal data-stagger>
+        <div class="glowline"></div>
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z" stroke="#67e8f9" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="#67e8f9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>AI interview prep</h3>
+        <p>For any role: likely questions, answer tips grounded in your background, and smart questions to ask back.</p>
+      </div>
+      <div class="glass feat c3 reveal tilt" data-reveal data-stagger>
+        <div class="glowline"></div>
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="14" rx="2" stroke="#a5b4fc" stroke-width="1.8"/><path d="M3 9h18M8 18v3M16 18v3" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <h3>One dashboard, full journey</h3>
+        <p>Discover, tailor, apply, and track in one place — with a kanban pipeline from Queued to Offer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- JOURNEY (pinned horizontal 3D) -->
+<section class="journey" id="journey">
+  <div class="wrap" style="width:100%">
+    <div class="sec-head" style="text-align:left;margin-bottom:34px;max-width:520px">
+      <span class="eyebrow">The journey</span>
+      <h2>Scroll through a real search</h2>
+    </div>
+    <div class="journey-track" id="jtrack">
+      <div class="glass jcard"><div class="step-no">01</div><h3>Set your profile</h3><p>Title, cities, salary, skills, resume. The AI learns what "a good match" means for you.</p></div>
+      <div class="glass jcard"><div class="step-no">02</div><h3>Matches roll in</h3><p>Live, India-first roles scored against your profile. No fake listings, ever.</p></div>
+      <div class="glass jcard"><div class="step-no">03</div><h3>Tailor in one tap</h3><p>A cover letter + ATS keywords + fit analysis, ready to copy or auto-submit.</p></div>
+      <div class="glass jcard"><div class="step-no">04</div><h3>Apply safely</h3><p>Auto-apply queues direct-ATS roles. You stay in control; nothing risks your accounts.</p></div>
+      <div class="glass jcard"><div class="step-no">05</div><h3>Track & win</h3><p>Pipeline, analytics, interview prep, and a daily WhatsApp nudge until you land it.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="section">
+  <div class="wrap">
+    <div class="stats">
+      <div class="glass stat reveal" data-reveal data-stagger><div class="n"><span data-count="500">0</span>+</div><div class="l">Real ATS roles ingested</div></div>
+      <div class="glass stat reveal" data-reveal data-stagger><div class="n"><span data-count="11">0</span></div><div class="l">AI tools in your corner</div></div>
+      <div class="glass stat reveal" data-reveal data-stagger><div class="n">₹<span data-count="799">0</span></div><div class="l">Pro · per month</div></div>
+      <div class="glass stat reveal" data-reveal data-stagger><div class="n"><span data-count="0">0</span></div><div class="l">Spam applications sent</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow reveal" data-reveal>Stories</span>
+      <h2 class="reveal" data-reveal>Job seekers who applied smarter</h2>
+    </div>
+    <div class="tgrid">
+      <div class="glass tcard reveal" data-reveal data-stagger>
+        <p>"I stopped spraying 80 applications a week. Vedax tailored 6 great ones and I had 3 interviews in 10 days."</p>
+        <div class="tperson"><span class="avatar" style="background:linear-gradient(150deg,#6366F1,#8b5cf6)">AR</span><div><div class="nm">Ananya R.</div><div class="rl">Frontend Engineer · Bengaluru</div></div></div>
+      </div>
+      <div class="glass tcard reveal" data-reveal data-stagger>
+        <p>"The WhatsApp digest is genius. Every evening I knew exactly where I stood without opening a laptop."</p>
+        <div class="tperson"><span class="avatar" style="background:linear-gradient(150deg,#22d3ee,#0891b2)">VK</span><div><div class="nm">Vikram K.</div><div class="rl">Data Analyst · Pune</div></div></div>
+      </div>
+      <div class="glass tcard reveal" data-reveal data-stagger>
+        <p>"Interview prep tailored to my actual resume was the difference. Walked in knowing exactly what to say."</p>
+        <div class="tperson"><span class="avatar" style="background:linear-gradient(150deg,#34d399,#059669)">SM</span><div><div class="nm">Sana M.</div><div class="rl">Product Manager · Remote</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow reveal" data-reveal>Pricing</span>
+      <h2 class="reveal" data-reveal>Start free. Upgrade when it's working.</h2>
+      <p class="reveal" data-reveal>No long lock-in. Pause anytime — you'll be back for the next search.</p>
+    </div>
+    <div class="prices">
+      <div class="glass price reveal tilt" data-reveal data-stagger>
+        <h3 style="font-size:20px">Free</h3>
+        <div class="amt">₹0</div>
+        <div style="color:var(--fg-muted);font-size:14px;margin-top:-8px">forever</div>
+        <ul>
+          <li>✓ &nbsp;Real job search & tracking</li>
+          <li>✓ &nbsp;5 AI tailorings / month</li>
+          <li>✓ &nbsp;3 auto-applies / day</li>
+          <li>✓ &nbsp;Full pipeline & analytics</li>
+        </ul>
+        <a class="btn btn-ghost" style="width:100%;justify-content:center" href="http://localhost:3001">Get started</a>
+      </div>
+      <div class="glass price pro reveal tilt" data-reveal data-stagger>
+        <span class="badge">POPULAR</span>
+        <h3 style="font-size:20px">Pro</h3>
+        <div class="amt">₹799<span style="font-size:17px;color:var(--fg-muted);font-weight:500">/mo</span></div>
+        <div style="color:var(--fg-muted);font-size:14px;margin-top:-8px">everything in Free, plus</div>
+        <ul>
+          <li>✦ &nbsp;Unlimited AI tailoring</li>
+          <li>✦ &nbsp;25 auto-applies / day</li>
+          <li>✦ &nbsp;WhatsApp daily digest</li>
+          <li>✦ &nbsp;AI interview prep</li>
+          <li>✦ &nbsp;Priority matching</li>
+        </ul>
+        <a class="btn btn-primary" style="width:100%;justify-content:center" href="http://localhost:3001">Upgrade to Pro</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="cta-final">
+  <div class="wrap">
+    <div class="glass cta-card reveal" data-reveal>
+      <div class="cta-glow"></div>
+      <div style="position:relative;z-index:1">
+        <h2>Apply well,<br><span class="gradient-text">not everywhere.</span></h2>
+        <p style="color:var(--fg-muted);max-width:480px;margin:18px auto 0">Let your AI co-pilot do the searching, tailoring, and tracking. You focus on showing up.</p>
+        <div class="hero-cta" style="margin-top:30px">
+          <a class="btn btn-primary" href="http://localhost:3001">Start free — it's quick
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div class="logo" style="font-size:16px"><span class="mark" style="width:26px;height:26px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 5l7 14 7-14" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Vedax Job Buddy</div>
+    <div>© 2026 Vedax Studio · Built with AI · India-first</div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var hasGSAP = typeof window.gsap !== 'undefined';
+  var reveals = document.querySelectorAll('[data-reveal]');
+
+  // Safe fallback: if no GSAP or reduced motion, just show everything.
+  function showAll(){ reveals.forEach(function(el){ el.style.opacity=1; el.style.transform='none'; }); }
+
+  // Header scrolled state
+  var header = document.getElementById('header');
+  function onScroll(){ if(window.scrollY>20) header.classList.add('scrolled'); else header.classList.remove('scrolled'); }
+  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
+
+  // Smooth anchor scroll
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      var t = document.querySelector(a.getAttribute('href')); if(!t) return;
+      e.preventDefault(); t.scrollIntoView({behavior: reduce?'auto':'smooth', block:'start'});
+    });
+  });
+
+  if(!hasGSAP || reduce){ showAll(); return; }
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Reveal on scroll (with stagger for grouped items)
+  var groups = {};
+  reveals.forEach(function(el){
+    if(el.hasAttribute('data-stagger')){
+      var p = el.parentElement; var key = p.className;
+      (groups[key] = groups[key] || {parent:p, items:[]}).items.push(el);
+    } else {
+      gsap.fromTo(el, {opacity:0, y:42}, {opacity:1, y:0, duration:.9, ease:'power3.out',
+        scrollTrigger:{trigger:el, start:'top 86%'}});
+    }
+  });
+  Object.keys(groups).forEach(function(k){
+    var g = groups[k];
+    gsap.fromTo(g.items, {opacity:0, y:50, rotateX:-12}, {opacity:1, y:0, rotateX:0, duration:.85, ease:'power3.out', stagger:.09,
+      scrollTrigger:{trigger:g.parent, start:'top 80%'}});
+  });
+
+  // Hero 3D mockup: tilt in on load, recede on scroll
+  var mockup = document.getElementById('mockup');
+  if(mockup){
+    gsap.fromTo(mockup, {opacity:0, y:80, rotateX:28, scale:.92}, {opacity:1, y:0, rotateX:14, scale:1, duration:1.3, ease:'power3.out', delay:.2});
+    gsap.to(mockup, {rotateX:0, y:-30, scale:.96, ease:'none',
+      scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:1}});
+    // floating cards parallax
+    document.querySelectorAll('.float-card').forEach(function(fc){
+      var amt = parseFloat(fc.getAttribute('data-float'))||1;
+      gsap.to(fc, {yPercent: amt*-30, ease:'none', scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:1.2}});
+    });
+  }
+
+  // Background blob parallax on scroll
+  document.querySelectorAll('.blob').forEach(function(b){
+    var d = parseFloat(b.getAttribute('data-depth'))||.5;
+    gsap.to(b, {yPercent: d*40, ease:'none', scrollTrigger:{trigger:document.body, start:'top top', end:'bottom bottom', scrub:1.5}});
+  });
+
+  // Journey: horizontal 3D scroll, pinned
+  var jtrack = document.getElementById('jtrack');
+  if(jtrack && window.innerWidth>760){
+    var scrollLen = jtrack.scrollWidth - jtrack.clientWidth + 40;
+    if(scrollLen > 0){
+      gsap.to(jtrack, {x:-scrollLen, ease:'none',
+        scrollTrigger:{trigger:'#journey', start:'top top', end:'+='+scrollLen, scrub:1, pin:true}});
+    }
+  }
+
+  // Mouse 3D tilt on hero mockup + feature/price cards
+  function tilt(el, max){
+    el.addEventListener('mousemove', function(e){
+      var r = el.getBoundingClientRect();
+      var px = (e.clientX - r.left)/r.width - .5, py = (e.clientY - r.top)/r.height - .5;
+      el.style.transform = 'perspective(900px) rotateY('+(px*max)+'deg) rotateX('+(-py*max)+'deg)';
+      el.style.setProperty('--mx', (px+.5)*100+'%'); el.style.setProperty('--my', (py+.5)*100+'%');
+    });
+    el.addEventListener('mouseleave', function(){ el.style.transform=''; });
+  }
+  if(window.matchMedia('(hover:hover)').matches){
+    document.querySelectorAll('.tilt').forEach(function(el){ tilt(el, 7); });
+  }
+
+  // Count-up stats
+  document.querySelectorAll('[data-count]').forEach(function(el){
+    var target = parseFloat(el.getAttribute('data-count'));
+    ScrollTrigger.create({trigger:el, start:'top 90%', once:true, onEnter:function(){
+      var obj = {v:0};
+      gsap.to(obj, {v:target, duration:1.4, ease:'power2.out', onUpdate:function(){
+        el.textContent = Math.round(obj.v).toLocaleString('en-IN');
+      }});
+    }});
+  });
+
+  ScrollTrigger.refresh();
+})();
+</script>
+</body>
+</html>
