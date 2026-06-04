@@ -139,12 +139,18 @@ Per-job, "Copilot not spam" tailoring — the heart of the product strategy.
 - Plans page with live usage meter, upgrade (Razorpay Checkout / demo), and cancel.
 - Gates return `402 { upgrade: true }` so the UI can prompt upgrades.
 
+## 🎓 AI Interview Prep (Pro)
+
+Per-job prep kit: an overview, topics to brush up, **likely questions** (behavioral / technical / role) each with an answer tip grounded in your profile, and smart **questions to ask** the interviewer. Same Claude + template-fallback architecture as tailoring; opened from any application row. MCP tool: `jobtracker_interview_prep`.
+
 ## 🗺️ Roadmap
 
 - [x] WhatsApp daily digest ("jobs applied today") — Meta Cloud API + mock mode
 - [x] AI resume + cover-letter tailoring per job — Claude Sonnet 4.6 + template fallback
 - [x] Safe auto-apply pipeline (direct-ATS) — guardrails + dry-run submission
 - [x] Billing (Razorpay) + freemium tiers — Free/Pro entitlements enforced
+- [x] Analytics & insights dashboard
+- [x] AI interview prep (Pro)
 - [ ] Live ATS submission via employer-authorized integration
 - [ ] Next.js rebuild (SSR for job-page SEO) + Postgres + Typesense
 

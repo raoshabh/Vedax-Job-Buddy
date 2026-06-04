@@ -9,9 +9,12 @@ import {
   saveTailoring,
   logUsage,
   countUsageThisMonth,
+  getInterviewPrep,
+  saveInterviewPrep,
 } from '../db.js';
 import { ensureFreshJobs, ingestJobs } from '../jobs/ingest.js';
 import { tailorApplication } from '../ai/tailor.js';
+import { prepareInterview } from '../ai/interview.js';
 import { aiEnabled } from '../ai/client.js';
 import { getEntitlements } from '../billing/entitlements.js';
 
@@ -108,6 +111,58 @@ router.post('/:id/tailor', async (req: Request, res: Response): Promise<void> =>
     res.json({ tailoring: data, source, cached: false, ai_enabled: aiEnabled() });
   } catch (err) {
     console.error('Tailor error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /:id/interview - fetch cached interview prep (if any)
+router.get('/:id/interview', (req: Request, res: Response): void => {
+  try {
+    const cached = getInterviewPrep(req.userId!, req.params.id as string);
+    if (!cached) {
+      res.json({ prep: null });
+      return;
+    }
+    res.json({ prep: cached.data, source: cached.source, cached: true });
+  } catch (err) {
+    console.error('Get interview prep error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /:id/interview - generate AI interview prep (Pro feature)
+router.post('/:id/interview', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const jobId = req.params.id as string;
+    const refresh = req.body?.refresh === true;
+
+    const job = getJob(jobId);
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+
+    if (!refresh) {
+      const cached = getInterviewPrep(req.userId!, jobId);
+      if (cached) {
+        res.json({ prep: cached.data, source: cached.source, cached: true });
+        return;
+      }
+    }
+
+    // Interview prep is a Pro feature.
+    if (!getEntitlements(req.userId!).interviewPrep) {
+      res.status(402).json({ error: 'AI interview prep is a Pro feature. Upgrade to unlock it.', upgrade: true });
+      return;
+    }
+
+    const profile = getProfile(req.userId!);
+    const { data, source } = await prepareInterview(profile, job);
+    saveInterviewPrep(req.userId!, jobId, data, source);
+
+    res.json({ prep: data, source, cached: false });
+  } catch (err) {
+    console.error('Interview prep error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

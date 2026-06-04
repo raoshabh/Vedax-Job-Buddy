@@ -17,10 +17,12 @@ import {
   upsertWhatsappPrefs,
   getJob,
   saveTailoring,
+  saveInterviewPrep,
 } from '../db.js';
 import { ensureFreshJobs } from '../jobs/ingest.js';
 import { sendDigestNow } from '../notifications/scheduler.js';
 import { tailorApplication } from '../ai/tailor.js';
+import { prepareInterview } from '../ai/interview.js';
 import { runAutoApply } from '../autoapply/worker.js';
 
 const server = new McpServer({
@@ -361,6 +363,35 @@ server.tool(
           job: { title: job.title, company: job.company },
           tailoring: data,
         }, null, 2),
+      }],
+    };
+  }
+);
+
+// ── jobtracker_interview_prep ──
+server.tool(
+  'jobtracker_interview_prep',
+  'Generate AI interview preparation for a specific job: an overview, prep topics, likely questions with answer tips, and smart questions to ask the interviewer.',
+  {
+    job_id: z.string().describe('The ID of the job to prepare for'),
+  },
+  { destructiveHint: false, readOnlyHint: false },
+  async (params) => {
+    const userId = getDefaultUserId();
+    const job = getJob(params.job_id);
+    if (!job) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Job not found' }) }],
+        isError: true,
+      };
+    }
+    const profile = getProfile(userId);
+    const { data, source } = await prepareInterview(profile, job);
+    saveInterviewPrep(userId, params.job_id, data, source);
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({ success: true, source, job: { title: job.title, company: job.company }, prep: data }, null, 2),
       }],
     };
   }

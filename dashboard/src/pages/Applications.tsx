@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Briefcase, ChevronDown, Inbox } from 'lucide-react';
+import { Briefcase, ChevronDown, Inbox, GraduationCap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import InterviewModal from '../components/InterviewModal';
 import * as api from '../api/client';
 import type { Application, ApplicationStatus } from '../api/client';
 
@@ -96,6 +97,7 @@ export default function Applications() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ApplicationStatus | 'all'>('all');
+  const [prepTarget, setPrepTarget] = useState<{ jobId: string; title: string; company: string } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -248,6 +250,16 @@ export default function Applications() {
                 {formatDate(app.appliedAt)}
               </span>
 
+              {/* Interview prep */}
+              <button
+                onClick={() => setPrepTarget({ jobId: app.jobId, title: app.jobTitle, company: app.company })}
+                className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800 px-2 py-1 rounded-lg hover:bg-purple-50 transition-colors flex-shrink-0"
+                title="AI interview prep"
+              >
+                <GraduationCap size={14} />
+                <span className="hidden sm:inline">Prep</span>
+              </button>
+
               {/* Action dropdown */}
               <StatusDropdown
                 current={app.status}
@@ -256,6 +268,15 @@ export default function Applications() {
             </div>
           ))}
         </div>
+      )}
+
+      {prepTarget && (
+        <InterviewModal
+          jobId={prepTarget.jobId}
+          title={prepTarget.title}
+          company={prepTarget.company}
+          onClose={() => setPrepTarget(null)}
+        />
       )}
     </div>
   );

@@ -146,6 +146,18 @@ function initTables(db: SqlJsDatabase): void {
     )
   `);
   db.run(`
+    CREATE TABLE IF NOT EXISTS interview_preps (
+      user_id TEXT NOT NULL,
+      job_id TEXT NOT NULL,
+      data TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'ai',
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, job_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
     CREATE TABLE IF NOT EXISTS auto_apply_config (
       user_id TEXT PRIMARY KEY,
       enabled INTEGER NOT NULL DEFAULT 0,
@@ -682,6 +694,30 @@ export function saveTailoring(userId: string, jobId: string, data: unknown, sour
   const now = new Date().toISOString();
   execute(
     `INSERT OR REPLACE INTO tailorings (user_id, job_id, data, source, created_at) VALUES (?, ?, ?, ?, ?)`,
+    [userId, jobId, JSON.stringify(data), source, now]
+  );
+}
+
+export function getInterviewPrep(
+  userId: string,
+  jobId: string
+): { data: unknown; source: string; created_at: string } | undefined {
+  const row = queryOne<{ data: string; source: string; created_at: string }>(
+    'SELECT data, source, created_at FROM interview_preps WHERE user_id = ? AND job_id = ?',
+    [userId, jobId]
+  );
+  if (!row) return undefined;
+  try {
+    return { data: JSON.parse(row.data), source: row.source, created_at: row.created_at };
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveInterviewPrep(userId: string, jobId: string, data: unknown, source: string): void {
+  const now = new Date().toISOString();
+  execute(
+    `INSERT OR REPLACE INTO interview_preps (user_id, job_id, data, source, created_at) VALUES (?, ?, ?, ?, ?)`,
     [userId, jobId, JSON.stringify(data), source, now]
   );
 }

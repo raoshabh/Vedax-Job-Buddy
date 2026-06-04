@@ -11,11 +11,12 @@ export interface Entitlements {
   aiTailorsPerMonth: number;
   autoApplyDailyCap: number;
   whatsapp: boolean;
+  interviewPrep: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, Omit<Entitlements, 'plan'>> = {
-  free: { aiTailorsPerMonth: 5, autoApplyDailyCap: 3, whatsapp: false },
-  pro: { aiTailorsPerMonth: 1000, autoApplyDailyCap: 25, whatsapp: true },
+  free: { aiTailorsPerMonth: 5, autoApplyDailyCap: 3, whatsapp: false, interviewPrep: false },
+  pro: { aiTailorsPerMonth: 1000, autoApplyDailyCap: 25, whatsapp: true, interviewPrep: true },
 };
 
 export function getPlan(userId: string): Plan {

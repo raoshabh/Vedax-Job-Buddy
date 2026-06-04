@@ -614,6 +614,44 @@ export function sendTestDigest(): Promise<TestDigestResult> {
   return request<TestDigestResult>('/notifications/whatsapp/test', { method: 'POST' });
 }
 
+// ---- Interview prep ----
+
+export interface InterviewQuestion {
+  question: string;
+  category: string;
+  tip: string;
+}
+
+export interface InterviewPrep {
+  overview: string;
+  prepTopics: string[];
+  questions: InterviewQuestion[];
+  questionsToAsk: string[];
+}
+
+export interface InterviewResult {
+  prep: InterviewPrep;
+  source: 'ai' | 'template';
+  cached: boolean;
+}
+
+function mapPrep(raw: Record<string, unknown>): InterviewPrep {
+  return {
+    overview: (raw.overview as string) ?? '',
+    prepTopics: (raw.prep_topics as string[]) ?? [],
+    questions: (raw.questions as InterviewQuestion[]) ?? [],
+    questionsToAsk: (raw.questions_to_ask as string[]) ?? [],
+  };
+}
+
+export async function generateInterviewPrep(jobId: string, refresh = false): Promise<InterviewResult> {
+  const data = await request<{ prep: Record<string, unknown>; source: 'ai' | 'template'; cached: boolean }>(
+    `/jobs/${jobId}/interview`,
+    { method: 'POST', body: JSON.stringify({ refresh }) }
+  );
+  return { prep: mapPrep(data.prep), source: data.source, cached: data.cached };
+}
+
 // ---- Dashboard ----
 
 export async function getDashboardStats(): Promise<DashboardStats> {
