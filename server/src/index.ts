@@ -7,8 +7,10 @@ import authRoutes from './routes/auth.js';
 import profileRoutes from './routes/profile.js';
 import jobRoutes from './routes/jobs.js';
 import applicationRoutes from './routes/applications.js';
+import notificationRoutes from './routes/notifications.js';
 import { initDb } from './db.js';
 import { ensureFreshJobs } from './jobs/ingest.js';
+import { startDigestScheduler } from './notifications/scheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,6 +34,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -67,6 +70,9 @@ app.get('*', (req, res) => {
     ensureFreshJobs()
       .then(() => console.log('  Jobs:      ingestion warm-up complete'))
       .catch((err) => console.error('  Jobs:      warm-up failed', err?.message || err));
+
+    // Start the daily WhatsApp digest scheduler.
+    startDigestScheduler();
   });
 }
 

@@ -4,7 +4,16 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import type { User, Profile, Job, Application, DashboardStats, Activity } from './types.js';
+import type {
+  User,
+  Profile,
+  Job,
+  Application,
+  DashboardStats,
+  Activity,
+  WhatsappPrefs,
+  DailyDigest,
+} from './types.js';
 import type { NormalizedJob } from './jobs/types.js';
 import { scoreJob } from './jobs/match.js';
 
@@ -106,6 +115,19 @@ function initTables(db: SqlJsDatabase): void {
       notes TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS whatsapp_prefs (
+      user_id TEXT PRIMARY KEY,
+      phone TEXT NOT NULL DEFAULT '',
+      opted_in INTEGER NOT NULL DEFAULT 0,
+      digest_hour INTEGER NOT NULL DEFAULT 20,
+      timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+      last_sent_date TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
@@ -495,6 +517,85 @@ export function getDashboardStats(userId: string): DashboardStats {
 export function getAppliedJobIds(userId: string): string[] {
   const rows = queryAll<{ job_id: string }>('SELECT job_id FROM applications WHERE user_id = ?', [userId]);
   return rows.map(r => r.job_id);
+}
+
+// ── WhatsApp notification preferences ──
+
+export function getWhatsappPrefs(userId: string): WhatsappPrefs | undefined {
+  return queryOne<WhatsappPrefs>('SELECT * FROM whatsapp_prefs WHERE user_id = ?', [userId]);
+}
+
+export function upsertWhatsappPrefs(
+  userId: string,
+  data: { phone?: string; opted_in?: boolean; digest_hour?: number; timezone?: string }
+): WhatsappPrefs {
+  const now = new Date().toISOString();
+  const existing = getWhatsappPrefs(userId);
+
+  if (existing) {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    if (data.phone !== undefined) { fields.push('phone = ?'); values.push(data.phone); }
+    if (data.opted_in !== undefined) { fields.push('opted_in = ?'); values.push(data.opted_in ? 1 : 0); }
+    if (data.digest_hour !== undefined) { fields.push('digest_hour = ?'); values.push(data.digest_hour); }
+    if (data.timezone !== undefined) { fields.push('timezone = ?'); values.push(data.timezone); }
+    fields.push('updated_at = ?'); values.push(now);
+    values.push(userId);
+    execute(`UPDATE whatsapp_prefs SET ${fields.join(', ')} WHERE user_id = ?`, values);
+  } else {
+    execute(
+      `INSERT INTO whatsapp_prefs (user_id, phone, opted_in, digest_hour, timezone, last_sent_date, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
+      [
+        userId,
+        data.phone ?? '',
+        data.opted_in ? 1 : 0,
+        data.digest_hour ?? 20,
+        data.timezone ?? 'Asia/Kolkata',
+        now,
+        now,
+      ]
+    );
+  }
+  return getWhatsappPrefs(userId)!;
+}
+
+/** All users opted in with a phone number — used by the digest scheduler. */
+export function listOptedInPrefs(): WhatsappPrefs[] {
+  return queryAll<WhatsappPrefs>(
+    "SELECT * FROM whatsapp_prefs WHERE opted_in = 1 AND phone != ''"
+  );
+}
+
+export function markDigestSent(userId: string, dateStr: string): void {
+  execute('UPDATE whatsapp_prefs SET last_sent_date = ? WHERE user_id = ?', [dateStr, userId]);
+}
+
+/**
+ * Compute a user's activity digest for a given local date (YYYY-MM-DD).
+ * "Today" is matched against the date portion of applied_at / updated_at.
+ */
+export function getDailyDigest(userId: string, dateStr: string): DailyDigest {
+  const appliedToday = queryOne<{ count: number }>(
+    "SELECT COUNT(*) as count FROM applications WHERE user_id = ? AND substr(applied_at, 1, 10) = ?",
+    [userId, dateStr]
+  );
+  const changesToday = queryOne<{ count: number }>(
+    "SELECT COUNT(*) as count FROM applications WHERE user_id = ? AND substr(updated_at, 1, 10) = ? AND status != 'queued'",
+    [userId, dateStr]
+  );
+
+  const stats = getDashboardStats(userId);
+
+  return {
+    date: dateStr,
+    applied_today: appliedToday?.count || 0,
+    status_changes_today: changesToday?.count || 0,
+    total_applications: stats.total_applications,
+    interviews: stats.interviews_scheduled,
+    offers: stats.offers_received,
+    by_status: stats.by_status,
+  };
 }
 
 export function getOrCreateDefaultUser(): User {

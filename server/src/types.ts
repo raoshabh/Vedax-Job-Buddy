@@ -60,6 +60,27 @@ export interface DashboardStats {
   recent_activity: Activity[];
 }
 
+export interface WhatsappPrefs {
+  user_id: string;
+  phone: string;
+  opted_in: number; // 0 | 1
+  digest_hour: number; // 0-23, local to timezone
+  timezone: string;
+  last_sent_date: string | null; // YYYY-MM-DD
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyDigest {
+  date: string; // YYYY-MM-DD
+  applied_today: number;
+  status_changes_today: number;
+  total_applications: number;
+  interviews: number;
+  offers: number;
+  by_status: Record<string, number>;
+}
+
 // Express request augmentation
 declare global {
   namespace Express {

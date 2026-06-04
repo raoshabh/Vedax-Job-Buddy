@@ -14,8 +14,10 @@ import {
   updateApplicationStatus,
   getDashboardStats,
   getAppliedJobIds,
+  upsertWhatsappPrefs,
 } from '../db.js';
 import { ensureFreshJobs } from '../jobs/ingest.js';
+import { sendDigestNow } from '../notifications/scheduler.js';
 
 const server = new McpServer({
   name: 'jobtracker',
@@ -341,6 +343,61 @@ server.tool(
           reason_skipped: 'Already applied or limit reached',
         }, null, 2),
       }],
+    };
+  }
+);
+
+// ── jobtracker_setup_whatsapp ──
+server.tool(
+  'jobtracker_setup_whatsapp',
+  'Configure WhatsApp daily-digest notifications: set the phone number, opt-in, and preferred send hour.',
+  {
+    phone: z.string().describe('WhatsApp number in E.164 format, e.g. +919876543210'),
+    opt_in: z.boolean().default(true).describe('Enable the daily digest'),
+    digest_hour: z.number().min(0).max(23).default(20).describe('Local hour (0-23) to send the digest'),
+  },
+  { destructiveHint: false, readOnlyHint: false },
+  async (params) => {
+    const userId = getDefaultUserId();
+    const prefs = upsertWhatsappPrefs(userId, {
+      phone: params.phone,
+      opted_in: params.opt_in,
+      digest_hour: params.digest_hour,
+    });
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: true,
+          message: 'WhatsApp notifications configured',
+          prefs: { phone: prefs.phone, opted_in: Boolean(prefs.opted_in), digest_hour: prefs.digest_hour, timezone: prefs.timezone },
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// ── jobtracker_send_whatsapp_digest ──
+server.tool(
+  'jobtracker_send_whatsapp_digest',
+  "Send the user's job-search digest to their configured WhatsApp number right now.",
+  {},
+  { destructiveHint: false },
+  async () => {
+    const userId = getDefaultUserId();
+    const outcome = await sendDigestNow(userId);
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          success: outcome.ok,
+          mock: outcome.result?.mock ?? false,
+          reason: outcome.reason,
+          digest: outcome.digest,
+          preview: outcome.preview,
+        }, null, 2),
+      }],
+      isError: !outcome.ok,
     };
   }
 );

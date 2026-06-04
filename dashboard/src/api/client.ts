@@ -281,6 +281,69 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
   return mapApplication(data.application);
 }
 
+// ---- Notifications (WhatsApp) ----
+
+export interface WhatsappPrefs {
+  phone: string;
+  optedIn: boolean;
+  digestHour: number;
+  timezone: string;
+  lastSentDate: string | null;
+  providerLive: boolean;
+}
+
+function mapPrefs(raw: Record<string, unknown>): WhatsappPrefs {
+  return {
+    phone: (raw.phone as string) ?? '',
+    optedIn: Boolean(raw.opted_in),
+    digestHour: (raw.digest_hour as number) ?? 20,
+    timezone: (raw.timezone as string) ?? 'Asia/Kolkata',
+    lastSentDate: (raw.last_sent_date as string) ?? null,
+    providerLive: Boolean(raw.provider_live),
+  };
+}
+
+export async function getWhatsappPrefs(): Promise<WhatsappPrefs> {
+  const data = await request<{ prefs: Record<string, unknown> }>('/notifications/whatsapp');
+  return mapPrefs(data.prefs);
+}
+
+export async function updateWhatsappPrefs(input: {
+  phone?: string;
+  optedIn?: boolean;
+  digestHour?: number;
+  timezone?: string;
+}): Promise<WhatsappPrefs> {
+  const body: Record<string, unknown> = {};
+  if (input.phone !== undefined) body.phone = input.phone;
+  if (input.optedIn !== undefined) body.opted_in = input.optedIn;
+  if (input.digestHour !== undefined) body.digest_hour = input.digestHour;
+  if (input.timezone !== undefined) body.timezone = input.timezone;
+  const data = await request<{ prefs: Record<string, unknown> }>('/notifications/whatsapp', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+  return mapPrefs(data.prefs);
+}
+
+export interface TestDigestResult {
+  message: string;
+  mock: boolean;
+  preview: string;
+  digest: {
+    date: string;
+    applied_today: number;
+    status_changes_today: number;
+    total_applications: number;
+    interviews: number;
+    offers: number;
+  };
+}
+
+export function sendTestDigest(): Promise<TestDigestResult> {
+  return request<TestDigestResult>('/notifications/whatsapp/test', { method: 'POST' });
+}
+
 // ---- Dashboard ----
 
 export async function getDashboardStats(): Promise<DashboardStats> {

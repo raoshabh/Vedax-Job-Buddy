@@ -94,9 +94,19 @@ All optional — see [`server/.env.example`](server/.env.example).
 
 `jobtracker_setup_profile` · `jobtracker_search_jobs` · `jobtracker_apply_to_job` · `jobtracker_list_applications` · `jobtracker_update_application_status` · `jobtracker_get_dashboard` · `jobtracker_auto_apply`
 
+## 📲 WhatsApp Daily Digest
+
+Opt-in daily WhatsApp summary of your job search (applications, interviews, progress).
+
+- **Provider:** Meta WhatsApp Cloud API, with a **mock mode** (logs to server console) so it runs with zero credentials. Point `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` at Meta — or a BSP that exposes the Cloud API (AiSensy/Gupshup/360dialog) — to go live.
+- **Scheduling:** in-process scheduler sends once per day at the user's chosen local hour (default **8 PM IST**); per-user timezone aware.
+- **Compliance:** explicit opt-in; supports pre-approved **utility templates** for business-initiated sends (`WHATSAPP_TEMPLATE_NAME`).
+- **UI:** `/notifications` — set number, opt-in, time; "Send Test Digest" with a live message preview.
+- **MCP tools:** `jobtracker_setup_whatsapp`, `jobtracker_send_whatsapp_digest`.
+
 ## 🗺️ Roadmap
 
-- [ ] WhatsApp daily digest ("jobs applied today") via a BSP — India wedge
+- [x] WhatsApp daily digest ("jobs applied today") — Meta Cloud API + mock mode
 - [ ] AI resume + cover-letter tailoring per job
 - [ ] Safe auto-apply workers for Greenhouse/Lever
 - [ ] Billing (Razorpay) + freemium tiers

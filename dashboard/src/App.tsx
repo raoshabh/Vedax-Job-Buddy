@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Jobs from './pages/Jobs';
 import Applications from './pages/Applications';
+import Notifications from './pages/Notifications';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/applications" element={<Applications />} />
+        <Route path="/notifications" element={<Notifications />} />
       </Route>
 
       {/* Default redirect */}

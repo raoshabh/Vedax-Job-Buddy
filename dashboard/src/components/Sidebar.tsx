@@ -4,6 +4,7 @@ import {
   User,
   Search,
   Briefcase,
+  MessageCircle,
   Sparkles,
   Rocket,
   X,
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/profile', label: 'My Profile', icon: User },
   { to: '/jobs', label: 'Job Search', icon: Search },
   { to: '/applications', label: 'Applications', icon: Briefcase },
+  { to: '/notifications', label: 'WhatsApp Alerts', icon: MessageCircle },
 ];
 
 interface SidebarProps {

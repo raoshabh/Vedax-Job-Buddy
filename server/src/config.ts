@@ -53,6 +53,22 @@ export const config = {
 
   // Network
   fetchTimeoutMs: envNum('FETCH_TIMEOUT_MS', 15000),
+
+  // ── WhatsApp daily digest (Meta Cloud API; console/mock fallback) ──
+  whatsappToken: process.env.WHATSAPP_TOKEN || '',
+  whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+  whatsappApiVersion: process.env.WHATSAPP_API_VERSION || 'v21.0',
+  // Optional approved template name. WhatsApp requires a pre-approved template
+  // for business-initiated messages outside the 24h service window. When unset,
+  // the provider sends free-form text (fine for testing / within-window).
+  whatsappTemplateName: process.env.WHATSAPP_TEMPLATE_NAME || '',
+  whatsappTemplateLang: process.env.WHATSAPP_TEMPLATE_LANG || 'en',
+
+  // Daily digest scheduling (India-first defaults)
+  digestDefaultHour: envNum('DIGEST_DEFAULT_HOUR', 20), // 8 PM local
+  digestTimezone: process.env.DIGEST_TIMEZONE || 'Asia/Kolkata',
+  schedulerEnabled: process.env.SCHEDULER_ENABLED !== 'false',
+  dashboardUrl: process.env.DASHBOARD_URL || 'http://localhost:5173',
 };
 
 // India-relevance: cities + remote keywords used to keep ingestion India-first.
