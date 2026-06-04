@@ -55,7 +55,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
               <Rocket className="w-4.5 h-4.5 text-white" size={18} />
             </div>
-            <span className="text-lg font-bold text-indigo-500">JobTracker</span>
+            <span className="text-lg font-bold text-indigo-500">Vedax Job Buddy</span>
           </div>
           <button
             onClick={onClose}

@@ -67,7 +67,7 @@ app.get('*', (req, res) => {
 });
 
   app.listen(PORT, () => {
-    console.log(`JobTracker API server running on http://localhost:${PORT}`);
+    console.log(`Vedax Job Buddy API server running on http://localhost:${PORT}`);
     console.log(`  API:       http://localhost:${PORT}/api`);
     console.log(`  Health:    http://localhost:${PORT}/api/health`);
     console.log(`  Dashboard: http://localhost:${PORT} (if built)`);

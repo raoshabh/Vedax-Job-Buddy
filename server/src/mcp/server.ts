@@ -26,7 +26,7 @@ import { prepareInterview } from '../ai/interview.js';
 import { runAutoApply } from '../autoapply/worker.js';
 
 const server = new McpServer({
-  name: 'jobtracker',
+  name: 'vedax-job-buddy',
   version: '1.0.0',
 });
 
@@ -457,7 +457,7 @@ async function main() {
   await initDb();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('JobTracker MCP server running on stdio');
+  console.error('Vedax Job Buddy MCP server running on stdio');
 }
 
 main().catch((err) => {

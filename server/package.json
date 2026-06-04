@@ -1,7 +1,7 @@
 {
-  "name": "jobtracker-mcp-server",
+  "name": "vedax-job-buddy-server",
   "version": "1.0.0",
-  "description": "MCP server for AI-powered job application tracking",
+  "description": "Vedax Job Buddy — AI-powered job search, apply & tracking (API + MCP server)",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

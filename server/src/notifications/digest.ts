@@ -15,7 +15,7 @@ function motivation(d: DailyDigest): string {
 /** Full human-readable digest (used in mock mode and within the 24h window). */
 export function buildDigestText(name: string, d: DailyDigest): string {
   const lines = [
-    `🚀 *JobBuddy daily update* — ${d.date}`,
+    `🚀 *Vedax Job Buddy daily update* — ${d.date}`,
     `Hi ${name.split(' ')[0]}, here's your job search at a glance:`,
     '',
     `✅ Applied today: *${d.applied_today}*`,

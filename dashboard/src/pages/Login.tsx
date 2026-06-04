@@ -41,7 +41,7 @@ export default function Login() {
               <Rocket className="text-white" size={22} />
             </div>
             <span className="text-2xl font-bold text-indigo-500">
-              JobTracker
+              Vedax Job Buddy
             </span>
           </div>
 
